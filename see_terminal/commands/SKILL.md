@@ -11,16 +11,16 @@ allowed-tools: Bash(tmux:*)
 
 First, verify tmux is running and show available panes:
 
-Available panes: !`tmux list-panes -F "#{pane_index}: #{pane_current_command} (#{pane_width}x#{pane_height})" 2>&1`
+Available panes: !`tmux list-panes -F '#{pane_index}: #{pane_current_command} (#{pane_width}x#{pane_height})' 2>&1`
 
 ## Capture Pane Contents
 
-Target pane: ${1:-0}
-Lines to capture: ${2:-50}
+Target pane: $1
+Lines to capture: $2
 
-**Note**: For performance reasons, requesting more than 1000 lines may be slow. The default of 50 lines is usually sufficient for most debugging tasks.
+**Note**: For performance reasons, requesting more than 1000 lines may be slow. The default of 50 lines is usually sufficient for most debugging tasks. When invoking this skill, always provide both parameters explicitly (e.g., "0 50" for pane 0 with 50 lines).
 
-Captured output: !`tmux capture-pane -t "${1:-0}" -p -S -${2:-50} 2>&1`
+Captured output: !`tmux capture-pane -t $1 -p -S -$2 2>&1`
 
 ## Analysis Instructions
 
