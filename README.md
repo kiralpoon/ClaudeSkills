@@ -14,18 +14,23 @@ This repository contains skills for [Claude Code](https://claude.ai/download), A
 
 **Skill**: `see-terminal`
 
-Enables Claude to capture and analyze tmux pane contents directly. Perfect for debugging, reviewing build output, or getting Claude's insights on terminal activity.
+Enables Claude to capture, analyze, and control tmux pane contents directly. Perfect for debugging, reviewing build output, fixing errors automatically, and getting Claude's insights on terminal activity.
 
 **Key Features**:
 - Capture output from any tmux pane
+- Execute commands in panes with safety classification
 - Flexible pane targeting (by number or relative position)
 - Adjustable history depth (default 50 lines)
 - Automatic error analysis and suggestions
+- Post-execution verification of command results
 
 **Use Cases**:
 - Ask Claude to check your terminal output for errors
 - Request analysis of build or test results from another pane
 - Get explanations of error messages visible in your terminal
+- Have Claude fix errors by executing commands (with approval for risky operations)
+- Restart failed builds or tests automatically
+- Interrupt running processes with keyboard signals
 
 [📖 Full Documentation →](./see_terminal/README.md)
 
@@ -85,7 +90,7 @@ All skills are designed to work seamlessly within Claude Code:
 
 | Skill | Name | Description | Status |
 |-------|------|-------------|--------|
-| [See Terminal](./see_terminal/) | `see-terminal` | Capture and analyze tmux pane contents | ✅ Stable |
+| [See Terminal](./see_terminal/) | `see-terminal` | Capture, analyze, and control tmux pane contents | ✅ Stable |
 
 _More skills coming soon!_
 
