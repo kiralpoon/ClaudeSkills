@@ -1,0 +1,9 @@
+{
+  "_note": "This file is for metadata only. Claude Code uses the skills system, not traditional plugins.",
+  "name": "wsl-terminal",
+  "version": "1.0.0",
+  "description": "Capture and analyze tmux pane contents from WSL terminal",
+  "author": "Claude Code User",
+  "homepage": "https://github.com/kiralpoon/ClaudeSkills",
+  "license": "MIT"
+}
