@@ -4,17 +4,17 @@ A collection of custom skills for Claude Code that extend its capabilities with 
 
 ## About
 
-This repository contains skills (custom commands) for [Claude Code](https://claude.ai/download), Anthropic's official CLI tool. Each skill adds new functionality through slash commands that can be invoked during your coding sessions.
+This repository contains skills for [Claude Code](https://claude.ai/download), Anthropic's official CLI tool. Skills extend Claude's capabilities by providing specialized workflows that Claude automatically invokes when relevant to your task.
 
 **Platform**: Primarily developed for Windows WSL (Windows Subsystem for Linux), but most skills should work on native Linux systems as well.
 
 ## Available Skills
 
-### 🖥️ [WSL Terminal](./WSL_Terminal/)
+### 🖥️ [See Terminal](./see_terminal/)
 
-**Command**: `/see-terminal`
+**Skill**: `see-terminal`
 
-Capture and analyze tmux pane contents directly within Claude Code. Perfect for debugging, reviewing build output, or getting Claude's insights on terminal activity.
+Enables Claude to capture and analyze tmux pane contents directly. Perfect for debugging, reviewing build output, or getting Claude's insights on terminal activity.
 
 **Key Features**:
 - Capture output from any tmux pane
@@ -23,11 +23,11 @@ Capture and analyze tmux pane contents directly within Claude Code. Perfect for 
 - Automatic error analysis and suggestions
 
 **Use Cases**:
-- "What does this error mean?" - Capture and analyze error messages
-- "Did the build succeed?" - Review build output
-- "Summarize these test results" - Quick test output analysis
+- Ask Claude to check your terminal output for errors
+- Request analysis of build or test results from another pane
+- Get explanations of error messages visible in your terminal
 
-[📖 Full Documentation →](./WSL_Terminal/README.md)
+[📖 Full Documentation →](./see_terminal/README.md)
 
 ## Quick Start
 
@@ -47,15 +47,14 @@ Capture and analyze tmux pane contents directly within Claude Code. Perfect for 
 
 2. **Install a skill**:
    ```bash
-   cd WSL_Terminal
+   cd see_terminal
    ./install.sh
    ```
 
-3. **Start using it**:
+3. **Restart Claude Code**:
    ```bash
    claude
-   # In Claude Code session:
-   /see-terminal
+   # The skill is now available - Claude will use it when appropriate
    ```
 
 Each skill has its own `install.sh` script for easy installation and an `uninstall.sh` for removal.
@@ -69,10 +68,8 @@ SkillName/
 ├── README.md           # Detailed documentation
 ├── install.sh          # Installation script
 ├── uninstall.sh        # Uninstallation script
-├── commands/           # Command definitions
-│   └── command.md      # Skill command file
-└── .claude-plugin/     # Metadata (optional)
-    └── plugin.json
+└── commands/           # Skill definitions
+    └── SKILL.md        # Skill definition file
 ```
 
 ## Usage Pattern
@@ -80,15 +77,15 @@ SkillName/
 All skills are designed to work seamlessly within Claude Code:
 
 1. **Install** the skill using its `install.sh` script
-2. **Restart** Claude Code to pick up the new command
-3. **Invoke** using the slash command (e.g., `/see-terminal`)
-4. **Interact** with Claude about the results
+2. **Restart** Claude Code to load the new skill
+3. **Request** relevant tasks - Claude will automatically use the skill when appropriate
+4. **Interact** naturally with Claude about the results
 
 ## Skill Catalog
 
-| Skill | Command | Description | Status |
-|-------|---------|-------------|--------|
-| [WSL Terminal](./WSL_Terminal/) | `/see-terminal` | Capture and analyze tmux pane contents | ✅ Stable |
+| Skill | Name | Description | Status |
+|-------|------|-------------|--------|
+| [See Terminal](./see_terminal/) | `see-terminal` | Capture and analyze tmux pane contents | ✅ Stable |
 
 _More skills coming soon!_
 

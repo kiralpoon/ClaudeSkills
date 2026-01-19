@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# WSL Terminal Skill Installation Script for Claude Code
-# This script installs the /see-terminal command into Claude Code's skills directory
+# See Terminal Skill Installation Script for Claude Code
+# This script installs the see-terminal skill into Claude Code's skills directory
 
 set -e  # Exit on error
 
@@ -16,10 +16,10 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Target directory for Claude Code skills
-SKILLS_DIR="$HOME/.claude/skills/wsl-terminal"
+SKILLS_DIR="$HOME/.claude/skills/see-terminal"
 
 echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}WSL Terminal Skill Installer${NC}"
+echo -e "${BLUE}See Terminal Skill Installer${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 
@@ -37,14 +37,14 @@ if ! command -v tmux &> /dev/null; then
 fi
 
 # Check if source files exist
-if [[ ! -f "$SCRIPT_DIR/commands/see-terminal.md" ]]; then
-    echo -e "${RED}✗ Error: Command file not found${NC}"
-    echo "  Expected: $SCRIPT_DIR/commands/see-terminal.md"
+if [[ ! -f "$SCRIPT_DIR/commands/SKILL.md" ]]; then
+    echo -e "${RED}✗ Error: Skill file not found${NC}"
+    echo "  Expected: $SCRIPT_DIR/commands/SKILL.md"
     exit 1
 fi
 
 # Check if skill is already installed
-if [[ -d "$SKILLS_DIR" ]] && [[ -f "$SKILLS_DIR/see-terminal.md" ]]; then
+if [[ -d "$SKILLS_DIR" ]] && [[ -f "$SKILLS_DIR/SKILL.md" ]]; then
     echo -e "${YELLOW}⚠ Existing installation found${NC}"
     echo "  Location: $SKILLS_DIR"
     echo ""
@@ -61,30 +61,29 @@ fi
 echo -e "${BLUE}→${NC} Creating skills directory..."
 mkdir -p "$SKILLS_DIR"
 
-# Copy command file
-echo -e "${BLUE}→${NC} Installing /see-terminal command..."
-cp "$SCRIPT_DIR/commands/see-terminal.md" "$SKILLS_DIR/"
+# Copy skill file
+echo -e "${BLUE}→${NC} Installing see-terminal skill..."
+cp "$SCRIPT_DIR/commands/SKILL.md" "$SKILLS_DIR/"
 
 # Verify installation
-if [[ -f "$SKILLS_DIR/see-terminal.md" ]]; then
+if [[ -f "$SKILLS_DIR/SKILL.md" ]]; then
     echo -e "${GREEN}✓ Installation successful!${NC}"
     echo ""
     echo -e "${GREEN}Installed files:${NC}"
-    ls -lh "$SKILLS_DIR/see-terminal.md" | awk '{print "  " $9 " (" $5 ")"}'
+    ls -lh "$SKILLS_DIR/SKILL.md" | awk '{print "  " $9 " (" $5 ")"}'
     echo ""
     echo -e "${GREEN}Location:${NC}"
     echo "  $SKILLS_DIR"
     echo ""
     echo -e "${YELLOW}Next steps:${NC}"
-    echo "  1. Start or restart Claude Code"
+    echo "  1. Start or restart Claude Code with: claude"
     echo "  2. Open tmux with: tmux"
-    echo "  3. Use the command: /see-terminal"
+    echo "  3. Ask Claude to check your terminal"
     echo ""
     echo -e "${BLUE}Usage examples:${NC}"
-    echo "  /see-terminal           # Capture pane 0, last 50 lines"
-    echo "  /see-terminal 1         # Capture pane 1"
-    echo "  /see-terminal 0 100     # Capture 100 lines"
-    echo "  /see-terminal {right}   # Capture pane to the right"
+    echo '  "Check my terminal for errors"'
+    echo '  "What'"'"'s in pane 1?"'
+    echo '  "Show me the last 100 lines from the right pane"'
     echo ""
 else
     echo -e "${RED}✗ Installation failed${NC}"

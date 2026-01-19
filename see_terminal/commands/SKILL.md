@@ -1,4 +1,5 @@
 ---
+name: see-terminal
 description: Capture tmux pane contents for analysis
 argument-hint: [pane-target] [lines]
 allowed-tools: Bash(tmux:*)
@@ -57,16 +58,18 @@ Common errors and solutions:
 
 - **Invalid numeric values** → If you see errors about invalid line numbers
   - The line count parameter must be a positive integer
-  - Example: Use `/see-terminal 0 100` not `/see-terminal 0 abc`
+  - Ask the user to request a valid number of lines
 
 - **Other errors** → Show the error and suggest troubleshooting
 
-## Usage Examples
+## Parameters
 
-```
-/see-terminal           # Capture last 50 lines from pane 0
-/see-terminal 1         # Capture last 50 lines from pane 1
-/see-terminal 0 100     # Capture last 100 lines from pane 0
-/see-terminal {right}   # Capture from pane to the right
-/see-terminal 1 200     # Get more context (200 lines) from pane 1
-```
+When Claude invokes this skill, it can specify:
+
+- **pane-target** (default: 0): Pane number (0, 1, 2...) or relative position ({right}, {left}, etc.)
+- **lines** (default: 50): Number of lines to capture from pane history
+
+Examples of what users might request:
+- "Check my terminal" → captures pane 0, last 50 lines
+- "What's in pane 1?" → captures pane 1, last 50 lines
+- "Show me the last 100 lines from the right pane" → captures right pane, 100 lines

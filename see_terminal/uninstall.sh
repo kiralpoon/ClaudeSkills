@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# WSL Terminal Skill Uninstallation Script for Claude Code
-# This script removes the /see-terminal command from Claude Code's skills directory
+# See Terminal Skill Uninstallation Script for Claude Code
+# This script removes the see-terminal skill from Claude Code's skills directory
 
 set -e  # Exit on error
 
@@ -13,10 +13,10 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Target directory for Claude Code skills
-SKILLS_DIR="$HOME/.claude/skills/wsl-terminal"
+SKILLS_DIR="$HOME/.claude/skills/see-terminal"
 
 echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}WSL Terminal Skill Uninstaller${NC}"
+echo -e "${BLUE}See Terminal Skill Uninstaller${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 
@@ -57,7 +57,7 @@ rm -rf "$SKILLS_DIR"
 if [[ ! -d "$SKILLS_DIR" ]]; then
     echo -e "${GREEN}✓ Uninstallation successful!${NC}"
     echo ""
-    echo -e "${GREEN}The /see-terminal command has been removed.${NC}"
+    echo -e "${GREEN}The see-terminal skill has been removed.${NC}"
     echo "  Restart Claude Code to complete the removal."
     echo ""
 else
