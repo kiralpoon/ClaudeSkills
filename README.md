@@ -18,11 +18,11 @@ Enables Claude to capture, analyze, and control tmux pane contents directly. Per
 
 **Key Features**:
 - Capture output from any tmux pane
-- Execute commands in panes with safety classification
+- Execute commands with safety classification (auto-approve safe, request approval for risky)
+- Smart completion detection (0.2-0.5s for quick commands, waits for long ones)
 - Flexible pane targeting (by number or relative position)
 - Adjustable history depth (default 50 lines)
-- Automatic error analysis and suggestions
-- Post-execution verification of command results
+- Automatic error detection and early failure detection
 
 **Use Cases**:
 - Ask Claude to check your terminal output for errors
@@ -93,37 +93,6 @@ All skills are designed to work seamlessly within Claude Code:
 | [See Terminal](./see_terminal/) | `see-terminal` | Capture, analyze, and control tmux pane contents | ✅ Stable |
 
 _More skills coming soon!_
-
-## Contributing
-
-Have an idea for a skill? Want to improve an existing one?
-
-### Adding a New Skill
-
-1. Fork this repository
-2. Create a new directory following the skill structure above
-3. Implement your skill with proper documentation
-4. Test thoroughly on WSL/Linux
-5. Submit a pull request
-
-### Improving Existing Skills
-
-1. Check the individual skill's README for specific guidelines
-2. Test your changes thoroughly
-3. Update documentation as needed
-4. Submit a pull request with clear description of changes
-
-## Roadmap
-
-Future skills under consideration:
-
-- **Git Helper** - Advanced git operations and analysis
-- **Code Review** - Automated code review workflows
-- **Docker Manager** - Container inspection and debugging
-- **Log Analyzer** - Parse and analyze application logs
-- **Performance Profiler** - Capture and analyze performance metrics
-
-Have a suggestion? [Open an issue](https://github.com/kiralpoon/ClaudeSkills/issues)!
 
 ## Requirements
 
