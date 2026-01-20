@@ -107,7 +107,24 @@ You should see `SKILL.md` in the directory. The skill will be available in your 
 
 ## Usage
 
-The skill is automatically invoked by Claude when you ask about terminal content or request command execution. You can interact with your terminal in natural language:
+The skill is automatically invoked by Claude when you ask about terminal content or request command execution. You can interact with your terminal in natural language or use the direct `/see-terminal` command.
+
+### Direct Invocation (Optional)
+
+You can invoke the skill directly with optional parameters:
+
+```
+/see-terminal                    # Shows available panes, asks which to capture, uses 50 lines
+/see-terminal 0                  # Captures pane 0, last 50 lines
+/see-terminal 1 100              # Captures pane 1, last 100 lines
+/see-terminal {right} 200        # Captures right pane, last 200 lines
+```
+
+**Parameters:**
+- **pane-target** (optional): Pane number (0, 1, 2...) or position ({left}, {right}, etc.)
+  - If omitted, Claude will show available panes and ask you to select one
+- **lines** (optional): Number of lines to capture (default: 50)
+  - Recommended to keep under 1000 for performance
 
 ### View terminal output (READ mode)
 

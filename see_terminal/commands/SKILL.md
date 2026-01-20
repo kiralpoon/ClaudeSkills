@@ -1,7 +1,7 @@
 ---
 name: see-terminal
 description: Capture and control tmux pane contents
-argument-hint: [pane-target] [lines]
+argument-hint: [pane-target (optional, default: asks user)] [lines (optional, default: 50)]
 allowed-tools: Bash(tmux:*)
 ---
 
@@ -29,20 +29,50 @@ For CONTROL mode, proceed to the Control Mode section.
 
 # Tmux Pane Content Capture (READ Mode)
 
-## Validate Tmux Session
+## Validate Tmux Session and Parameters
 
-First, verify tmux is running and show available panes:
+First, verify tmux is running and show available panes.
 
-Available panes: !`tmux list-panes -F '#{pane_index}: #{pane_current_command} (#{pane_width}x#{pane_height})' 2>&1`
+Use the Bash tool to run:
+```bash
+tmux list-panes -F '#{pane_index}: #{pane_current_command} (#{pane_width}x#{pane_height})' 2>&1
+```
 
-## Capture Pane Contents
+This will show you all available panes. If it fails with "no server running", inform the user that tmux is not active.
 
-Target pane: $1
-Lines to capture: $2
+## Parameter Validation and Capture
 
-**Note**: For performance reasons, requesting more than 1000 lines may be slow. The default of 50 lines is usually sufficient for most debugging tasks. When invoking this skill, always provide both parameters explicitly (e.g., "0 50" for pane 0 with 50 lines).
+**Step 1: Validate pane parameter**
 
-Captured output: !`tmux capture-pane -t $1 -p -S -$2 2>&1`
+Provided pane parameter: $1
+Provided lines parameter: $2
+
+Check the pane parameter:
+- If $1 is **empty** or **not provided**: You must ask the user which pane to capture
+  - Present the available panes listed above
+  - Ask: "Which pane would you like to capture? Please specify the pane number (e.g., 0, 1, 2) or position (left, right)."
+  - Wait for user response and use their selection
+- If $1 is **provided and looks valid** (number like 0, 1, 2 or position like {left}, {right}): Use it directly
+
+**Step 2: Determine line count**
+
+- If $2 is **empty** or **not provided**: Use 50 as the default
+- If $2 is **provided**: Use the specified number
+
+**Note**: For performance reasons, requesting more than 1000 lines may be slow. The default of 50 lines is usually sufficient for most debugging tasks.
+
+**Step 3: Capture the pane**
+
+Once you have validated the pane target and line count, use the Bash tool to capture the pane:
+
+```bash
+tmux capture-pane -t <pane> -p -S -<lines> 2>&1
+```
+
+Replace `<pane>` with the validated pane target (from user or $1).
+Replace `<lines>` with the line count (from $2 or default 50).
+
+After running the capture command, analyze the output below.
 
 ## Analysis Instructions
 
@@ -86,15 +116,23 @@ Common errors and solutions:
 
 ## Parameters
 
-When Claude invokes this skill, it can specify:
+Both parameters are **optional**:
 
-- **pane-target** (default: 0): Pane number (0, 1, 2...) or relative position ({right}, {left}, etc.)
-- **lines** (default: 50): Number of lines to capture from pane history
+- **pane-target** (optional): Pane number (0, 1, 2...) or relative position ({right}, {left}, etc.)
+  - If not provided or invalid, Claude will show available panes and ask user to select one
+  - Default behavior: Ask user for pane selection
+
+- **lines** (optional): Number of lines to capture from pane history
+  - If not provided, defaults to 50 lines
+  - Can be explicitly specified for more/less context
 
 Examples of what users might request:
-- "Check my terminal" → captures pane 0, last 50 lines
-- "What's in pane 1?" → captures pane 1, last 50 lines
-- "Show me the last 100 lines from the right pane" → captures right pane, 100 lines
+- "/see-terminal" → Shows panes, asks which to capture, uses 50 lines
+- "/see-terminal 0" → Captures pane 0, last 50 lines
+- "/see-terminal 1 100" → Captures pane 1, last 100 lines
+- "Check my terminal" → Shows panes, asks which to capture, uses 50 lines
+- "What's in pane 1?" → Captures pane 1, last 50 lines
+- "Show me the last 100 lines from the right pane" → Captures right pane, 100 lines
 
 ---
 
@@ -277,14 +315,16 @@ After 60 seconds (300 polls):
 
 Support multiple target formats:
 
-- **Pane number**: `0`, `1`, `2`, `3` (absolute pane indices)
-- **Relative position**: `{right}`, `{left}`, `{top}`, `{bottom}`, `{up}`, `{down}`
-- **Last active pane**: `!` or `last`
+- **Pane number**: 0, 1, 2, 3 (absolute pane indices)
+- **Relative position**: {right}, {left}, {top}, {bottom}, {up}, {down}
+- **Last active pane**: ! or last
 
 Examples:
-- `tmux send-keys -t 1 "npm test" Enter` - Execute in pane 1
-- `tmux send-keys -t {right} "npm test" Enter` - Execute in right pane
-- `tmux send-keys -t 0 C-c` - Send Ctrl+C to pane 0
+```bash
+tmux send-keys -t 1 "npm test" Enter    # Execute in pane 1
+tmux send-keys -t {right} "npm test" Enter    # Execute in right pane
+tmux send-keys -t 0 C-c    # Send Ctrl+C to pane 0
+```
 
 ## Example Workflows
 
