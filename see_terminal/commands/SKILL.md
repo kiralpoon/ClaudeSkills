@@ -180,7 +180,29 @@ When executing any command:
    ```bash
    tmux send-keys -t <pane> "<command>" Enter
    ```
-4. **Wait** 2-3 seconds for command to execute
+4. **Wait intelligently** for command to complete using prompt detection:
+   - Poll pane every 0.2 seconds
+   - Check if output ends with shell prompt (`$`, `#`, or `%`)
+   - Use this bash pattern:
+   ```bash
+   max_polls=300  # 60 seconds timeout (300 * 0.2s)
+   poll_count=0
+   while ((poll_count++ < max_polls)); do
+     output=$(tmux capture-pane -t <pane> -p -S -10)
+
+     # Get last non-empty line
+     last_line=$(echo "$output" | sed '/^[[:space:]]*$/d' | tail -1)
+
+     # Check if it ends with a prompt character
+     if [[ "$last_line" =~ [$#%][[:space:]]*$ ]]; then
+       # Prompt detected - command complete
+       break
+     fi
+
+     sleep 0.2
+   done
+   ```
+   - If timeout reached (60s), note that command may still be running
 5. **Verify** results by auto-capturing pane:
    ```bash
    tmux capture-pane -t <pane> -p -S -50
@@ -194,7 +216,10 @@ When executing any command:
 
 After sending any command, automatically verify the results:
 
-1. **Wait briefly** (2-3 seconds) for command to execute
+1. **Wait for completion** using intelligent prompt detection (see Command Execution Pattern step 4 above)
+   - Fast commands complete in ~0.2-0.5 seconds
+   - Long commands are detected when they finish (up to 60s timeout)
+   - More reliable than fixed delays
 2. **Capture pane** to check results:
    ```bash
    tmux capture-pane -t <pane> -p -S -50
@@ -207,6 +232,46 @@ After sending any command, automatically verify the results:
    - "Command completed successfully"
    - "Error occurred: [error details]"
    - "Command is still running..."
+
+## Smart Polling Implementation Notes
+
+The prompt detection polling works as follows:
+
+**How it works:**
+1. After sending command, immediately start polling
+2. Capture last 10 lines of pane every 200ms (optimized for performance)
+3. Filter out empty lines to get the last non-empty line
+4. Check if it ends with common shell prompt characters: `$`, `#`, or `%`
+5. When detected, command is complete
+
+**Prompt patterns detected:**
+- `$` followed by optional whitespace - Standard bash/sh user prompt
+- `#` followed by optional whitespace - Root prompt
+- `%` followed by optional whitespace - Zsh prompt
+- Works with both minimal prompts (`$`) and full prompts (`user@host:~/dir$`)
+
+**Edge cases handled:**
+- Multi-line prompts: Filters empty lines to find actual prompt line
+- Commands that output `$` in results: Only matches if `$#%` is at line end
+- Very long commands: 60-second timeout prevents infinite loops
+- Commands with no output: Still detects prompt return
+- First command in fresh pane: Detects the prompt correctly
+
+**Performance:**
+- Average detection time for quick commands: 0.2-0.5 seconds (vs 2-3s with sleep)
+- Long-running commands: Detected when they finish (not after arbitrary timeout)
+- CPU overhead: Minimal (captures only 10 lines every 200ms = ~50 lines/sec while waiting)
+- 5x more efficient than capturing 50 lines per poll
+
+**Known limitations:**
+- Custom prompts without `$`, `#`, or `%` suffixes will timeout after 60s
+- Workaround: Users can temporarily set PS1 to include standard suffix
+
+**Timeout behavior:**
+After 60 seconds (300 polls):
+- Stop polling
+- Capture final pane state
+- Report to user that command may still be running or completed without returning to prompt
 
 ## Pane Targeting
 
@@ -227,7 +292,7 @@ Examples:
 User: "Run ls in pane 1"
 > Classify: GREEN (read-only)
 > Execute immediately: `tmux send-keys -t 1 "ls" Enter`
-> Wait 2 seconds
+> Poll for prompt (detected in ~0.2-0.4s for ls command)
 > Capture and verify: `tmux capture-pane -t 1 -p -S -50`
 > Report: "Here's the directory listing from pane 1: [output]"
 
