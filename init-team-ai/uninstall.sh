@@ -6,7 +6,7 @@
 set -e
 
 SKILL_NAME="init-team-ai"
-CLAUDE_SKILLS_DIR="$HOME/.config/claude/skills"
+CLAUDE_SKILLS_DIR="$HOME/.claude/skills"
 SKILL_PATH="$CLAUDE_SKILLS_DIR/$SKILL_NAME"
 
 echo "Uninstalling $SKILL_NAME skill..."
