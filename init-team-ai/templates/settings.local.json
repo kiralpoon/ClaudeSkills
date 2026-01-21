@@ -1,6 +1,7 @@
 {
   "permissions": {
     "allow": [
+      "Bash",
       "Bash(ls:*)",
       "Bash(cat:*)",
       "Bash(pwd:*)",

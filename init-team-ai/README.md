@@ -63,11 +63,17 @@ Personal preferences for Claude Code behavior. Default configuration:
 
 Local Claude Code settings including:
 
-**Permissions (Safe Commands):**
-- Read-only file commands: `ls`, `cat`, `pwd`, `echo`
-- Git read commands: `git status`, `git log`, `git diff`, `git branch`
+**Permissions:**
+- `"Bash"` - Allows all bash commands (required for complex skills like tmux-wait)
+- Individual command permissions for documentation: `ls`, `cat`, `pwd`, `echo`
+- Git commands: `git status`, `git log`, `git diff`, `git branch`
 - Information commands: `which`, `whereis`, `date`, `whoami`
 - Search commands: `grep`, `find`
+- Tmux commands: `tmux` (for terminal control skills)
+
+**Why `"Bash"` permission?**
+
+Skills like `tmux-wait` and `see-terminal` use complex bash scripts with loops, variables, and multiple commands. Claude Code's permission system uses prefix matching (e.g., `"Bash(tmux:*)"` only matches commands starting with "tmux"). For compound bash scripts to execute without prompts, the general `"Bash"` permission is required.
 
 **SessionStart Hooks:**
 - Displays Claude.local.md content at session start
@@ -229,6 +235,12 @@ For issues or questions:
 - Refer to Claude Code documentation
 
 ## Version History
+
+- **1.0.1** (2026-01-21) - Permission system improvements
+  - Added `"Bash"` permission to templates for complex skill support
+  - Updated documentation about permission matching in Claude Code
+  - Enabled tmux-wait and other compound bash script skills without prompts
+  - Fixed prompt detection for Claude Code's "? for shortcuts" display
 
 - **1.0.0** (2026-01-20) - Initial release
   - Claude.local.md creation with local preferences
