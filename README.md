@@ -10,7 +10,7 @@ This repository contains skills for [Claude Code](https://claude.ai/download), A
 
 ## Available Skills
 
-### 🖥️ [See Terminal](./see_terminal/)
+### 🖥️ [See Terminal](./see-terminal/)
 
 **Skill**: `see-terminal`
 
@@ -34,7 +34,29 @@ Enables Claude to capture, analyze, and control tmux pane contents directly. Per
 - Restart failed builds or tests automatically
 - Interrupt running processes with keyboard signals
 
-[📖 Full Documentation →](./see_terminal/README.md)
+[📖 Full Documentation →](./see-terminal/README.md)
+
+### ⏱️ [Tmux Wait](./tmux-wait/)
+
+**Skill**: `tmux-wait`
+
+Event-driven waiting for tmux pane commands using `tmux wait-for`, eliminating the need for polling loops. Works seamlessly with `/see-terminal` for complete tmux automation.
+
+**Key Features**:
+- Event-driven command completion using `tmux wait-for` (zero CPU, instant detection)
+- Smart prompt detection for shell and Claude Code prompts (~0.2s detection)
+- Wait for specific text to appear in pane output
+- Pre-approved permissions when using `/init-team-ai`
+- Three modes: command execution, prompt waiting, and output monitoring
+
+**Use Cases**:
+- Wait for commands to complete without fixed delays
+- Monitor for permission prompts during skill execution
+- Detect Claude Code startup and readiness
+- Wait for build/test completion
+- Automated workflow synchronization
+
+[📖 Full Documentation →](./tmux-wait/README.md)
 
 ### 🚀 [Init Team AI](./init-team-ai/)
 
@@ -82,7 +104,7 @@ Quickly initialize new projects with team AI collaboration configuration. Create
 
 2. **Install a skill**:
    ```bash
-   cd see_terminal
+   cd see-terminal
    ./install.sh
    ```
 
@@ -120,7 +142,8 @@ All skills are designed to work seamlessly within Claude Code:
 
 | Skill | Name | Description | Status |
 |-------|------|-------------|--------|
-| [See Terminal](./see_terminal/) | `see-terminal` | Capture, analyze, and control tmux pane contents | ✅ Stable |
+| [See Terminal](./see-terminal/) | `see-terminal` | Capture, analyze, and control tmux pane contents | ✅ Stable |
+| [Tmux Wait](./tmux-wait/) | `tmux-wait` | Event-driven waiting for tmux pane commands | ✅ Stable |
 | [Init Team AI](./init-team-ai/) | `init-team-ai` | Initialize projects with team AI collaboration setup | ✅ Stable |
 
 _More skills coming soon!_
