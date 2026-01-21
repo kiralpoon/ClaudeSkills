@@ -87,10 +87,9 @@ poll_count=0
 while ((poll_count++ < MAX_POLLS)); do
   output=$(tmux capture-pane -t "$PANE" -p -S -10)
   last_line=$(echo "$output" | sed '/^[[:space:]]*$/d' | tail -1)
-  second_last=$(echo "$output" | sed '/^[[:space:]]*$/d' | tail -2 | head -1)
 
-  # Check last line for prompt
-  if [[ "$last_line" =~ (\$|#|%|❯|›)[[:space:]]*$ ]]; then
+  # Check last line for prompt (at end OR at beginning of line)
+  if [[ "$last_line" =~ (\$|#|%|❯|›)[[:space:]]*$ ]] || [[ "$last_line" =~ ^[[:space:]]*(❯|›|\$|#|%) ]]; then
     elapsed_decisecs=$((poll_count * 2))
     elapsed_secs=$((elapsed_decisecs / 10))
     elapsed_tenths=$((elapsed_decisecs % 10))
@@ -101,16 +100,20 @@ while ((poll_count++ < MAX_POLLS)); do
     exit 0
   fi
 
-  # Also check second-to-last line (for Claude Code which shows "? for shortcuts" after prompt)
-  if [[ "$second_last" =~ (\$|#|%|❯|›)[[:space:]]*$ ]] && [[ "$last_line" =~ (for shortcuts|Try) ]]; then
-    elapsed_decisecs=$((poll_count * 2))
-    elapsed_secs=$((elapsed_decisecs / 10))
-    elapsed_tenths=$((elapsed_decisecs % 10))
-    echo "✓ Prompt detected after ${elapsed_secs}.${elapsed_tenths} seconds"
-    echo ""
-    echo "=== Pane output ==="
-    tmux capture-pane -t "$PANE" -p -S -50
-    exit 0
+  # Check if last line is "? for shortcuts" - if so, look for prompt in last 5 lines
+  if [[ "$last_line" =~ (for shortcuts) ]]; then
+    # Get last 5 non-empty lines and check if any starts with a prompt character
+    last_5_lines=$(echo "$output" | sed '/^[[:space:]]*$/d' | tail -5)
+    if echo "$last_5_lines" | grep -qE '^\s*(❯|›|\$|#|%)'; then
+      elapsed_decisecs=$((poll_count * 2))
+      elapsed_secs=$((elapsed_decisecs / 10))
+      elapsed_tenths=$((elapsed_decisecs % 10))
+      echo "✓ Prompt detected after ${elapsed_secs}.${elapsed_tenths} seconds"
+      echo ""
+      echo "=== Pane output ==="
+      tmux capture-pane -t "$PANE" -p -S -50
+      exit 0
+    fi
   fi
 
   sleep 0.2

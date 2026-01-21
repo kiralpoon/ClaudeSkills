@@ -2,7 +2,7 @@
 name: see-terminal
 description: Capture and control tmux pane contents
 argument-hint: [pane-target (optional, default: asks user)] [lines (optional, default: 50)]
-allowed-tools: Bash(command:*)
+allowed-tools: Bash(tmux:*), Skill(tmux-wait:*)
 ---
 
 # Tmux Pane Capture & Control
@@ -27,7 +27,7 @@ allowed-tools: Bash(command:*)
 **This skill is comprehensive and handles:**
 - Reading pane contents (READ mode)
 - Executing commands in panes (CONTROL mode)
-- Smart polling and monitoring
+- Waiting for command completion (delegates to /tmux-wait)
 - Claude slash command execution
 - Permission approval workflows
 
@@ -37,24 +37,32 @@ allowed-tools: Bash(command:*)
 
 ## CRITICAL USAGE NOTE
 
-**NEVER use `sleep` commands before invoking this skill.**
+**Use /tmux-wait for all waiting operations.**
 
-When you need to check terminal output after sending commands to a tmux pane, call this skill IMMEDIATELY - do not add delays:
+When you need to wait for a command to complete or monitor for specific output, **ALWAYS use the /tmux-wait skill**:
 
-**❌ WRONG - Adding sleep before skill invocation:**
-```bash
-tmux send-keys -t 0 "claude" Enter
-sleep 2  # NEVER DO THIS!
-# Then invoke /see-terminal skill
+**✅ CORRECT - Use /tmux-wait skill:**
+```
+# Wait for prompt to return
+/tmux-wait prompt 0 60
+
+# Wait for specific text to appear
+/tmux-wait output 0 "Build succeeded" 30
+
+# Execute command and wait automatically
+/tmux-wait command 1 npm test
 ```
 
-**✅ CORRECT - Invoke skill immediately:**
+**❌ WRONG - Manual polling loops:**
 ```bash
-tmux send-keys -t 0 "claude" Enter
-# Immediately invoke /see-terminal skill (no sleep needed)
+# NEVER write manual polling loops!
+while ((poll_count++ < max_polls)); do
+  output=$(tmux capture-pane...)
+  sleep 0.2
+done
 ```
 
-The skill will capture the current pane state. If you need to wait for a command to complete, capture multiple times in sequence rather than using sleep delays. The skill is designed to be called repeatedly and efficiently.
+The `/tmux-wait` skill handles all waiting logic with pre-approved permissions. Never write manual polling loops.
 
 ## Mode Detection
 
@@ -76,34 +84,71 @@ Determine the user's intent based on their request:
 For READ mode, proceed to the capture section below.
 For CONTROL mode, proceed to the Control Mode section.
 
-## Smart Polling for Monitoring
+## Waiting for Commands with /tmux-wait
 
-**CRITICAL: Always use smart polling when monitoring panes in CONTROL mode.**
+**CRITICAL: Use /tmux-wait skill for ALL waiting operations.**
 
-When you need to wait for a command to complete or monitor for specific output:
+The `/tmux-wait` skill provides three modes:
 
-1. **Use smart polling** - Check pane output every 0.2 seconds
-2. **Look for prompts** - Shell prompts (`$`, `#`, `%`) or Claude prompts (`❯`, `›`)
-3. **Look for patterns** - Permission prompts, completion messages, error patterns
-4. **Never use fixed sleep** - Polling is more reliable and responsive
+### 1. Wait for Prompt Return
 
-**Example smart polling pattern:**
-```bash
-max_polls=150  # 30 seconds timeout
-poll_count=0
-while ((poll_count++ < max_polls)); do
-  output=$(tmux capture-pane -t <pane> -p -S -50)
+Wait for shell prompt (`$`, `#`, `%`) or Claude prompt (`❯`, `›`) to return:
 
-  # Check for what you're looking for
-  if echo "$output" | grep -q "expected pattern"; then
-    break
-  fi
-
-  sleep 0.2
-done
+```
+/tmux-wait prompt <pane> [timeout]
 ```
 
-After polling completes, **always** use the /see-terminal skill to capture and analyze the final state.
+**Examples:**
+- `/tmux-wait prompt 0` - Wait up to 30s for prompt in pane 0
+- `/tmux-wait prompt 1 60` - Wait up to 60s for prompt in pane 1
+
+**Use this after:**
+- Sending any command that you need to wait for
+- Starting Claude Code
+- Running tests or builds
+
+### 2. Wait for Specific Output
+
+Wait for specific text to appear in pane output:
+
+```
+/tmux-wait output <pane> <search-text> [timeout]
+```
+
+**Examples:**
+- `/tmux-wait output 0 "Do you want to proceed?" 10` - Wait for permission prompt
+- `/tmux-wait output 1 "Build succeeded" 60` - Wait for build completion
+- `/tmux-wait output 0 "Team AI Initialization Complete"` - Wait for skill completion
+
+**Use this for:**
+- Permission prompts
+- Completion messages
+- Error messages
+- Any specific pattern you're monitoring
+
+### 3. Execute Command and Wait
+
+Execute a command and automatically wait for completion:
+
+```
+/tmux-wait command <pane> <command>
+```
+
+**Examples:**
+- `/tmux-wait command 1 npm test` - Run tests and wait
+- `/tmux-wait command 0 ls -la` - List files and wait
+
+**Use this for:**
+- Simple commands where you want to execute and wait in one step
+- Commands with predictable completion
+
+### Why Use /tmux-wait?
+
+✅ **No permission prompts** - All tools pre-approved when using `/init-team-ai`
+✅ **Event-driven** - `command` mode uses `tmux wait-for` (zero CPU, instant detection)
+✅ **Reliable** - Consistent timeout handling and error reporting
+✅ **Clean** - One line instead of 10+ line polling loops
+✅ **Maintainable** - All waiting logic in one place
 
 # Tmux Pane Content Capture (READ Mode)
 
@@ -287,30 +332,13 @@ When executing any command:
    ```bash
    tmux send-keys -t <pane> "<command>" Enter
    ```
-4. **Wait intelligently** for command to complete using prompt detection:
-   - Poll pane every 0.2 seconds
-   - Check if output ends with shell prompt (`$`, `#`, `%`) or Claude prompt (`❯`, `›`)
-   - Use this bash pattern:
-   ```bash
-   max_polls=300  # 60 seconds timeout (300 * 0.2s)
-   poll_count=0
-   while ((poll_count++ < max_polls)); do
-     output=$(tmux capture-pane -t <pane> -p -S -10)
-
-     # Get last non-empty line
-     last_line=$(echo "$output" | sed '/^[[:space:]]*$/d' | tail -1)
-
-     # Check if it ends with a prompt character (shell or Claude)
-     if [[ "$last_line" =~ (\$|#|%|❯|›)[[:space:]]*$ ]]; then
-       # Prompt detected - command complete
-       break
-     fi
-
-     sleep 0.2
-   done
+4. **Wait for completion** using /tmux-wait skill:
    ```
-   - If timeout reached (60s), note that command may still be running
-5. **Verify** results by auto-capturing pane:
+   /tmux-wait prompt <pane> 60
+   ```
+   This replaces manual polling and provides reliable completion detection.
+
+5. **Verify** results by capturing pane:
    ```bash
    tmux capture-pane -t <pane> -p -S -50
    ```
@@ -323,66 +351,28 @@ When executing any command:
 
 After sending any command, automatically verify the results:
 
-1. **Wait for completion** using intelligent prompt detection (see Command Execution Pattern step 4 above)
+1. **Wait for completion** using `/tmux-wait prompt`:
+   ```
+   /tmux-wait prompt <pane> 60
+   ```
    - Fast commands complete in ~0.2-0.5 seconds
    - Long commands are detected when they finish (up to 60s timeout)
-   - More reliable than fixed delays
+   - More reliable than fixed delays or manual polling
+
 2. **Capture pane** to check results:
    ```bash
    tmux capture-pane -t <pane> -p -S -50
    ```
+
 3. **Analyze output**:
    - Check for error messages
    - Verify expected success indicators
    - Look for prompts or waiting states
+
 4. **Report to user**:
    - "Command completed successfully"
    - "Error occurred: [error details]"
    - "Command is still running..."
-
-## Smart Polling Implementation Notes
-
-The prompt detection polling works as follows:
-
-**How it works:**
-1. After sending command, immediately start polling
-2. Capture last 10 lines of pane every 200ms (optimized for performance)
-3. Filter out empty lines to get the last non-empty line
-4. Check if it ends with common shell prompt characters: `$`, `#`, or `%`
-5. When detected, command is complete
-
-**Prompt patterns detected:**
-- `$` followed by optional whitespace - Standard bash/sh user prompt
-- `#` followed by optional whitespace - Root prompt
-- `%` followed by optional whitespace - Zsh prompt
-- `❯` followed by optional whitespace - Claude Code prompt
-- `›` followed by optional whitespace - Alternative Claude Code prompt
-- Works with both minimal prompts (`$`) and full prompts (`user@host:~/dir$`)
-- Works with Claude Code prompts in any state (ready, working, etc.)
-
-**Edge cases handled:**
-- Multi-line prompts: Filters empty lines to find actual prompt line
-- Commands that output `$` in results: Only matches if `$#%` is at line end
-- Very long commands: 60-second timeout prevents infinite loops
-- Commands with no output: Still detects prompt return
-- First command in fresh pane: Detects the prompt correctly
-
-**Performance:**
-- Average detection time for quick commands: 0.2-0.5 seconds (vs 2-3s with sleep)
-- Long-running commands: Detected when they finish (not after arbitrary timeout)
-- CPU overhead: Minimal (captures only 10 lines every 200ms = ~50 lines/sec while waiting)
-- 5x more efficient than capturing 50 lines per poll
-
-**Known limitations:**
-- Custom prompts without `$`, `#`, `%`, `❯`, or `›` suffixes will timeout after 60s
-- Workaround: Users can temporarily set PS1 to include standard suffix
-- Note: Claude Code prompts (`❯`, `›`) are fully supported
-
-**Timeout behavior:**
-After 60 seconds (300 polls):
-- Stop polling
-- Capture final pane state
-- Report to user that command may still be running or completed without returning to prompt
 
 ## Pane Targeting
 
@@ -426,11 +416,11 @@ tmux send-keys -t <pane> Enter
 3. Second Enter: Executes the command after autocomplete is shown
 
 **This applies to ALL slash commands:**
-- Skills: `/init-team-ai`, `/see-terminal`
+- Skills: `/init-team-ai`, `/see-terminal`, `/tmux-wait`
 - Built-in commands: `/exit`, `/init`, `/help`, `/clear`
 - Any command starting with `/`
 
-**CRITICAL: Add robustness check after second Enter:**
+**CRITICAL: Verify execution after second Enter:**
 
 After pressing Enter the second time, immediately check if it executed:
 
@@ -440,8 +430,8 @@ tmux capture-pane -t <pane> -p -S -50
 ```
 
 Check the captured output:
-- If you still see the autocomplete menu (lines like `/init-team-ai    Initialize a new project...` or `/exit    Exit Claude Code`), the Enter didn't go through
-- If the autocomplete menu is gone and you see command execution starting (or Claude exiting for /exit), it worked
+- If you still see the autocomplete menu (lines like `/init-team-ai    Initialize a new project...`), the Enter didn't go through
+- If the autocomplete menu is gone and you see command execution starting, it worked
 
 **If Enter didn't go through, press it again:**
 ```bash
@@ -514,71 +504,66 @@ Example: Testing `/init-team-ai` skill in pane 0
 ```bash
 # Step 1: Start Claude in the pane
 tmux send-keys -t 0 "claude" Enter
+```
 
-# Step 2: Wait for Claude to start using smart polling
-max_polls=50; poll_count=0
-while ((poll_count++ < max_polls)); do
-  output=$(tmux capture-pane -t 0 -p -S -10)
-  last_line=$(echo "$output" | sed '/^[[:space:]]*$/d' | tail -1)
-  if [[ "$last_line" =~ (❯|›)[[:space:]]*$ ]]; then
-    break
-  fi
-  sleep 0.2
-done
+Wait for Claude to start using `/tmux-wait`:
+```
+/tmux-wait prompt 0 60
+```
 
-# Invoke /see-terminal to check Claude is ready
-# (Skill tool with skill: "see-terminal", args: "0 80")
+Verify Claude is ready:
+```
+/see-terminal 0 80
+```
 
-# Step 3: Execute the skill (TWO separate Enters with 1 second delay)
+```bash
+# Step 2: Execute the skill (TWO separate Enters with 1 second delay)
 tmux send-keys -t 0 "/init-team-ai" Enter
 sleep 1
 tmux send-keys -t 0 Enter
+```
 
-# Step 4: Verify skill started executing using smart polling
-# Wait a moment for autocomplete to disappear and skill to start
-max_polls=50; poll_count=0
-while ((poll_count++ < max_polls)); do
-  output=$(tmux capture-pane -t 0 -p -S -50)
-  # Check if autocomplete menu is gone (no lines with /init-team-ai followed by description)
-  if ! echo "$output" | grep -q "/init-team-ai.*Initialize"; then
-    break
-  fi
-  # If still showing autocomplete, press Enter again
-  if ((poll_count % 5 == 0)); then
-    tmux send-keys -t 0 Enter
-  fi
-  sleep 0.2
-done
+Verify skill started executing (capture to check autocomplete is gone):
+```bash
+tmux capture-pane -t 0 -p -S -50
+```
 
-# Invoke /see-terminal to verify skill is executing
-# (Skill tool with skill: "see-terminal", args: "0 100")
+If autocomplete still showing, press Enter again.
 
-# Step 5: Monitor for permission prompts using smart polling
-max_polls=150; poll_count=0
-while ((poll_count++ < max_polls)); do
-  output=$(tmux capture-pane -t 0 -p -S -50)
-  # Check for permission prompt pattern
-  if echo "$output" | grep -q "Do you want to proceed?"; then
-    # Permission prompt detected - approve it
-    tmux send-keys -t 0 Down Enter
-    sleep 0.5
-  fi
-  # Check if skill completed (look for completion message or prompt return)
-  if echo "$output" | grep -q "Team AI Initialization Complete"; then
-    break
-  fi
-  sleep 0.2
-done
+Monitor for permission prompts and completion:
+```
+/tmux-wait output 0 "Do you want to proceed?" 10
+```
 
-# Step 6: Verify completion
-# Invoke /see-terminal to check final results
-# (Skill tool with skill: "see-terminal", args: "0 100")
+If permission prompt found, approve it:
+```bash
+tmux send-keys -t 0 Down Enter
+```
 
-# Step 7: Exit Claude (using proper two-Enter pattern)
+Wait for skill completion:
+```
+/tmux-wait output 0 "Team AI Initialization Complete" 60
+```
+
+Verify completion:
+```
+/see-terminal 0 100
+```
+
+```bash
+# Step 3: Exit Claude (using proper two-Enter pattern)
 tmux send-keys -t 0 "/exit" Enter
 sleep 1
 tmux send-keys -t 0 Enter
 ```
+
+**Key points:**
+- ✅ Two Enters for ALL slash commands (skills, /exit, /init, etc.)
+- ✅ Sleep 1 second between the two Enters for autocomplete to load
+- ✅ Down arrow navigation for permission selection
+- ✅ Use `/tmux-wait` for all waiting operations (no manual polling!)
+- ✅ Use `/see-terminal` to capture and analyze final state
+- ✅ Sequential permission approval for "don't ask again" option
 
 ## Example Workflows
 
@@ -586,19 +571,8 @@ tmux send-keys -t 0 Enter
 User: "Run ls in pane 1"
 > Classify: GREEN (read-only)
 > Execute immediately: `tmux send-keys -t 1 "ls" Enter`
-> Smart poll for prompt:
-```bash
-max_polls=300; poll_count=0
-while ((poll_count++ < max_polls)); do
-  output=$(tmux capture-pane -t 1 -p -S -10)
-  last_line=$(echo "$output" | sed '/^[[:space:]]*$/d' | tail -1)
-  if [[ "$last_line" =~ (\$|#|%|❯|›)[[:space:]]*$ ]]; then
-    break
-  fi
-  sleep 0.2
-done
-```
-> Use /see-terminal skill to capture and analyze: Invoke Skill tool with skill: "see-terminal", args: "1"
+> Wait for prompt: `/tmux-wait prompt 1`
+> Capture and analyze: `/see-terminal 1`
 > Report: "Here's the directory listing from pane 1: [output]"
 
 ### Workflow 2: Request approval for YELLOW command
@@ -607,19 +581,8 @@ User: "Install lodash in the right pane"
 > Request approval: "I'll run 'npm install lodash' in the right pane. This will install the lodash package and update package.json. Proceed?"
 > Wait for user response
 > If approved: Execute `tmux send-keys -t {right} "npm install lodash" Enter`
-> Smart poll for completion:
-```bash
-max_polls=300; poll_count=0
-while ((poll_count++ < max_polls)); do
-  output=$(tmux capture-pane -t {right} -p -S -10)
-  last_line=$(echo "$output" | sed '/^[[:space:]]*$/d' | tail -1)
-  if [[ "$last_line" =~ (\$|#|%|❯|›)[[:space:]]*$ ]]; then
-    break
-  fi
-  sleep 0.2
-done
-```
-> Use /see-terminal skill to verify and analyze results
+> Wait for completion: `/tmux-wait prompt {right} 60`
+> Verify and analyze: `/see-terminal {right}`
 > Report results with summary of what was installed
 
 ### Workflow 3: Extra warning for RED command
@@ -635,43 +598,21 @@ User: "Stop the server in pane 1"
 > Classify: Special case (interrupt signal)
 > User explicitly requested, context is clear (stopping server)
 > Execute immediately: `tmux send-keys -t 1 C-c`
-> Smart poll for prompt return:
-```bash
-max_polls=50; poll_count=0
-while ((poll_count++ < max_polls)); do
-  output=$(tmux capture-pane -t 1 -p -S -10)
-  last_line=$(echo "$output" | sed '/^[[:space:]]*$/d' | tail -1)
-  if [[ "$last_line" =~ (\$|#|%|❯|›)[[:space:]]*$ ]]; then
-    break
-  fi
-  sleep 0.2
-done
-```
-> Use /see-terminal skill to verify server stopped
+> Wait for prompt return: `/tmux-wait prompt 1 10`
+> Verify server stopped: `/see-terminal 1`
 > Report: "Sent interrupt signal (Ctrl+C) to pane 1. Server stopped."
 
 ### Workflow 5: Fix error after diagnosis
 User: "Check pane 1"
-> READ mode: Use /see-terminal skill to capture and analyze
+> READ mode: `/see-terminal 1`
 > Claude: "Error: Module 'lodash' not found"
 User: "Fix it"
 > CONTROL mode: Classify npm install as YELLOW
 > Request approval: "I'll run 'npm install lodash' in pane 1 to fix the missing module. Proceed?"
 > User approves
 > Execute: `tmux send-keys -t 1 "npm install lodash" Enter`
-> Smart poll for completion:
-```bash
-max_polls=300; poll_count=0
-while ((poll_count++ < max_polls)); do
-  output=$(tmux capture-pane -t 1 -p -S -10)
-  last_line=$(echo "$output" | sed '/^[[:space:]]*$/d' | tail -1)
-  if [[ "$last_line" =~ (\$|#|%|❯|›)[[:space:]]*$ ]]; then
-    break
-  fi
-  sleep 0.2
-done
-```
-> Use /see-terminal skill to verify installation
+> Wait for completion: `/tmux-wait prompt 1 60`
+> Verify installation: `/see-terminal 1`
 > Report: "lodash installed successfully. Error resolved."
 
 ### Workflow 6: Testing Claude Skills
@@ -689,19 +630,14 @@ Report current pane state.
 tmux send-keys -t 0 "claude" Enter
 ```
 
-**Step 3: Monitor Claude startup using smart polling**
-```bash
-max_polls=50; poll_count=0
-while ((poll_count++ < max_polls)); do
-  output=$(tmux capture-pane -t 0 -p -S -10)
-  last_line=$(echo "$output" | sed '/^[[:space:]]*$/d' | tail -1)
-  if [[ "$last_line" =~ (❯|›)[[:space:]]*$ ]]; then
-    break
-  fi
-  sleep 0.2
-done
+**Step 3: Wait for Claude to start**
 ```
-Then use /see-terminal skill to verify Claude is ready (Skill tool with skill: "see-terminal", args: "0 80")
+/tmux-wait prompt 0 60
+```
+Then verify Claude is ready:
+```
+/see-terminal 0 80
+```
 
 **Step 4: Execute skill (TWO SEPARATE send-keys commands!)**
 ```bash
@@ -716,30 +652,27 @@ tmux send-keys -t 0 Enter
 ```
 **CRITICAL:** These MUST be two separate Bash tool calls, NOT combined in one command!
 
-**Step 5: Verify skill started and monitor for permission prompts using smart polling**
+**Step 5: Monitor for permission prompts and completion**
+Wait for permission prompt:
+```
+/tmux-wait output 0 "Do you want to proceed?" 10
+```
+
+If found, approve with option 2:
 ```bash
-max_polls=150; poll_count=0
-while ((poll_count++ < max_polls)); do
-  output=$(tmux capture-pane -t 0 -p -S -50)
+tmux send-keys -t 0 Down Enter
+```
 
-  # Check for permission prompt
-  if echo "$output" | grep -q "Do you want to proceed?"; then
-    # Permission detected - approve with option 2
-    tmux send-keys -t 0 Down Enter
-    sleep 0.5
-  fi
-
-  # Check if skill completed
-  if echo "$output" | grep -q "Team AI Initialization Complete"; then
-    break
-  fi
-
-  sleep 0.2
-done
+Wait for skill completion:
+```
+/tmux-wait output 0 "Team AI Initialization Complete" 60
 ```
 
 **Step 6: Verify completion**
-Use /see-terminal skill to check final results and verify all files were created correctly (Skill tool with skill: "see-terminal", args: "0 100")
+```
+/see-terminal 0 100
+```
+Check final results and verify all files were created correctly.
 
 **Step 7: Exit Claude (using proper two-Enter pattern)**
 ```bash
@@ -753,7 +686,6 @@ Or wait for user to manually exit.
 - ✅ Two Enters for ALL slash commands (skills, /exit, /init, etc.)
 - ✅ Sleep 1 second between the two Enters for autocomplete to load
 - ✅ Down arrow navigation for permission selection
-- ✅ Use smart polling with Claude prompt detection (`❯`, `›`) for all monitoring
-- ✅ Use /see-terminal skill after polling to capture and analyze final state
-- ✅ Never use fixed sleep delays - always use smart polling instead
+- ✅ Use `/tmux-wait` for all waiting operations - NO manual polling loops!
+- ✅ Use `/see-terminal` after waiting to capture and analyze final state
 - ✅ Sequential permission approval for "don't ask again" option

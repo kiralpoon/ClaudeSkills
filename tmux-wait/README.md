@@ -199,11 +199,15 @@ tmux wait-for signal  # Blocks until signal sent
 
 ### Prompt Detection
 
-Uses regex pattern matching:
+Uses intelligent regex pattern matching:
 ```bash
-# Detects these prompt patterns at line end:
+# Detects these prompt patterns at line start OR line end:
 $ # %     # Shell prompts (bash, zsh, sh, root)
 ❯ ›       # Claude Code prompts
+
+# Special handling for Claude Code idle state:
+# When "? for shortcuts" is detected, searches last 5 lines
+# for any prompt character - handles dynamic suggestion text
 ```
 
 ### Output Monitoring
