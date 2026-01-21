@@ -150,6 +150,92 @@ Execute a command and automatically wait for completion:
 ✅ **Clean** - One line instead of 10+ line polling loops
 ✅ **Maintainable** - All waiting logic in one place
 
+## Proper Workflow After Executing Commands
+
+**CRITICAL: After executing any command or skill, follow this pattern:**
+
+### The Correct Pattern
+
+After executing a command and approving any permissions:
+
+1. **Wait for prompt return** (indicates command completed):
+   ```
+   /tmux-wait prompt <pane> 60
+   ```
+
+2. **Capture and analyze the actual output** (start with 50 lines):
+   ```
+   /see-terminal <pane>
+   ```
+   Or if you need more context:
+   ```
+   /see-terminal <pane> 100
+   ```
+
+3. **Determine success/failure** based on what actually happened in the output
+
+**Why this pattern:**
+- The prompt return tells you the command finished
+- You then check WHAT actually happened
+- You're not making assumptions about specific success messages
+- 50 lines is usually enough; only use 100+ if you need more context
+
+### When to Use Each /tmux-wait Mode
+
+**Use `prompt` mode (MOST COMMON):**
+- After executing any command - default choice
+- After approving permissions
+- Any time you need to know "is it done?"
+- Example: `/tmux-wait prompt 0 60`
+
+**Use `output` mode (SPECIFIC CASES ONLY):**
+- Detecting permission prompts: `/tmux-wait output 0 "Do you want to proceed?" 10`
+- Waiting for specific user input prompts
+- Detecting specific error patterns you need to act on immediately
+- Example: `/tmux-wait output 0 "Build failed" 30`
+
+**❌ WRONG - Don't search for completion text that may not exist:**
+```
+# This assumes specific success text will appear and wastes time if it doesn't
+/tmux-wait output 0 "Team AI Initialization Complete" 60
+/tmux-wait output 0 "Build succeeded" 60
+```
+
+**✅ CORRECT - Wait for completion, then check what happened:**
+```
+# Wait for prompt (command finished)
+/tmux-wait prompt 0 60
+
+# Check what actually happened (start with 50 lines)
+/see-terminal 0
+
+# If 50 lines wasn't enough, try 100
+/see-terminal 0 100
+```
+
+**Example: Testing a Claude skill**
+```bash
+# Execute skill
+tmux send-keys -t 0 "/init-team-ai" Enter
+sleep 1
+tmux send-keys -t 0 Enter
+
+# Wait for permission prompt (specific text we know will appear)
+/tmux-wait output 0 "Do you want to proceed?" 10
+
+# Approve it
+tmux send-keys -t 0 Enter
+
+# Wait for command to finish (use prompt mode)
+/tmux-wait prompt 0 60
+
+# Check what happened (start with 50 lines)
+/see-terminal 0
+
+# If you need more context, use 100 lines
+/see-terminal 0 100
+```
+
 # Tmux Pane Content Capture (READ Mode)
 
 ## Parameter Validation and Capture

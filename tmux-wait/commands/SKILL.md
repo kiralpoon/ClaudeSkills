@@ -188,6 +188,103 @@ exit 1
 /tmux-wait output 0 "Do you want to proceed?" 10
 ```
 
+## Proper Workflow: When to Use Each Mode
+
+**CRITICAL: Choose the right mode for the right situation.**
+
+### Use `prompt` mode (DEFAULT - MOST COMMON)
+
+This is your **default choice** after executing any command:
+
+```
+/tmux-wait prompt <pane> 60
+```
+
+**When to use:**
+- After executing any command in a pane
+- After approving permissions
+- After starting applications (like Claude)
+- Any time you need to know "is the command done?"
+
+**Why it's better:**
+- Detects when command finishes, regardless of output
+- No assumptions about specific success messages
+- Works for any command that returns to a prompt
+- Fast and reliable
+
+**Then check what happened:**
+```
+/see-terminal <pane>        # Check with 50 lines (default)
+/see-terminal <pane> 100    # Use 100 if you need more context
+```
+
+### Use `output` mode (SPECIFIC CASES ONLY)
+
+Only use this when you need to detect **specific text that you KNOW will appear**:
+
+```
+/tmux-wait output <pane> "<exact-text>" <timeout>
+```
+
+**When to use:**
+- Permission prompts: `/tmux-wait output 0 "Do you want to proceed?" 10`
+- User input prompts: `/tmux-wait output 0 "Enter password:" 30`
+- Specific error patterns: `/tmux-wait output 0 "Build failed" 60`
+
+**When NOT to use:**
+- ❌ Completion messages that may vary or not exist
+- ❌ Success messages that are optional
+- ❌ Any text you're not 100% certain will appear
+
+### Common Mistakes to Avoid
+
+**❌ WRONG - Searching for completion text that may not exist:**
+```
+# These assume specific success messages and waste time if they don't appear
+/tmux-wait output 0 "Team AI Initialization Complete" 60
+/tmux-wait output 0 "Build succeeded" 60
+/tmux-wait output 0 "Installation complete" 60
+```
+
+**✅ CORRECT - Wait for prompt, then check what happened:**
+```
+# Wait for command to finish
+/tmux-wait prompt 0 60
+
+# Check what actually happened
+/see-terminal 0
+```
+
+### Complete Example: Testing a Claude Skill
+
+```bash
+# 1. Execute the skill
+tmux send-keys -t 0 "/init-team-ai" Enter
+sleep 1
+tmux send-keys -t 0 Enter
+
+# 2. Wait for permission prompt (we KNOW this specific text will appear)
+/tmux-wait output 0 "Do you want to proceed?" 10
+
+# 3. Approve permission
+tmux send-keys -t 0 Enter
+
+# 4. Wait for command to finish (use prompt mode - DON'T search for completion text!)
+/tmux-wait prompt 0 60
+
+# 5. Check what actually happened
+/see-terminal 0
+# If you need more context:
+/see-terminal 0 100
+```
+
+### Quick Decision Guide
+
+Ask yourself: "Do I know the EXACT text that will appear?"
+
+- **NO** → Use `prompt` mode, then `/see-terminal` to check results
+- **YES, and it's a prompt requiring action** → Use `output` mode
+
 ## Implementation Logic
 
 When invoked with arguments, parse $1 to determine the mode, then execute the corresponding bash commands shown above using the Bash tool. Use only the pre-approved commands listed in the allowed-tools field.
