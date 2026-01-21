@@ -14,6 +14,38 @@ This skill was developed and tested specifically for Windows WSL environments. W
 
 This skill enables Claude to capture, analyze, and control tmux pane contents on demand. When you ask Claude to check your terminal output or analyze errors, Claude can use this skill to fetch the contents from any tmux pane and provide insights. Claude can also execute commands in panes to fix errors, run builds, or perform other tasks. Perfect for debugging, reviewing build output, understanding error messages, and automating terminal workflows.
 
+## 🚨 CRITICAL: No Sleep Commands
+
+**NEVER use `sleep` commands before or after invoking this skill.**
+
+The skill is designed to capture pane state immediately and efficiently. Adding sleep delays:
+- Defeats the purpose of using the skill
+- Adds unnecessary wait time
+- Violates the intended usage pattern
+
+**❌ WRONG - Adding sleep before skill:**
+```bash
+tmux send-keys -t 0 "claude" Enter
+sleep 2                              # NEVER DO THIS!
+# Then invoke /see-terminal 0 50
+```
+
+**✅ CORRECT - Invoke skill immediately:**
+```bash
+tmux send-keys -t 0 "claude" Enter
+# Immediately invoke /see-terminal 0 50 (no sleep needed)
+```
+
+**If you need to wait for a command to complete:**
+- Call `/see-terminal` multiple times in sequence
+- The skill will show current pane state each time
+- No sleep delays are ever necessary
+
+**Key Patterns for Automation:**
+- Monitoring: Always use `/see-terminal` (never `sleep` + `tmux capture-pane`)
+- Permission approval: `tmux send-keys -t 0 Down Enter` (not typing "2")
+- Slash commands: Press Enter **twice** with 1 second delay (`/command` Enter, sleep 1, Enter)
+
 ## Control Capabilities
 
 Beyond just viewing terminal output, this skill now allows Claude to:
@@ -146,6 +178,22 @@ You can invoke the skill directly with optional parameters:
 "Send Ctrl+C to the right pane"
 ```
 
+### Multi-step takeover workflows
+
+```
+"Takeover pane 0, run claude, test /init-team-ai, approve all permissions"
+"See terminal 0, clear the pane, start the dev server, monitor until ready"
+"Control pane 1, kill the process, install dependencies, restart the build"
+```
+
+Claude will:
+1. Execute each command step-by-step
+2. **Use `/see-terminal` for ALL monitoring** (not manual sleep)
+3. Auto-approve permissions when you say "approve all permissions"
+4. Report progress and final results
+
+See "Multi-Step Takeover Example" below for detailed workflow.
+
 ### Fix errors automatically
 
 ```
@@ -173,6 +221,14 @@ You can invoke the skill directly with optional parameters:
 4. Poll every 0.2s for prompt return (detects completion instantly)
 5. Capture pane output to verify results
 6. Report success or errors to you
+
+**Multi-Step CONTROL mode** - When you request complex takeover workflows:
+1. Break down the request into individual steps
+2. Execute each step sequentially (clear, start claude, run skill, etc.)
+3. **Use `/see-terminal` for monitoring between steps** (not manual sleep)
+4. Auto-approve permissions when instructed (using `Down Enter` navigation)
+5. Continue monitoring until all steps complete
+6. Verify final results and report comprehensive status
 
 ## Workflow
 
@@ -264,6 +320,19 @@ pytest
 > You: "yes"
 > Claude executes and analyzes results
 > Claude: "All 47 tests passed. No failures."
+```
+
+### Multi-step takeover (CONTROL mode)
+```
+"Takeover pane 0, start claude, test /init-team-ai, approve all permissions"
+
+> Claude executes step by step:
+> - Clears pane, starts claude
+> - Monitors with /see-terminal (not sleep)
+> - Executes slash command with Enter, sleep 1, Enter (twice with delay!)
+> - Approves permissions with Down Enter (not "2")
+> - Continues monitoring until complete
+> - Reports: "init-team-ai completed in 43s. All files created."
 ```
 
 ## Safety Information

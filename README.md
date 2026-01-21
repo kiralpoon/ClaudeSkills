@@ -18,8 +18,10 @@ Enables Claude to capture, analyze, and control tmux pane contents directly. Per
 
 **Key Features**:
 - Capture output from any tmux pane
+- **Efficient monitoring**: Use `/see-terminal` for ALL pane monitoring (no manual sleep commands)
 - Execute commands with safety classification (auto-approve safe, request approval for risky)
 - Smart completion detection (0.2-0.5s for quick commands, waits for long ones)
+- Multi-step takeover workflows with continuous monitoring
 - Flexible pane targeting (by number or relative position)
 - Adjustable history depth (default 50 lines)
 - Automatic error detection and early failure detection
@@ -33,6 +35,34 @@ Enables Claude to capture, analyze, and control tmux pane contents directly. Per
 - Interrupt running processes with keyboard signals
 
 [📖 Full Documentation →](./see_terminal/README.md)
+
+### 🚀 [Init Team AI](./init-team-ai/)
+
+**Skill**: `init-team-ai`
+
+Quickly initialize new projects with team AI collaboration configuration. Creates local configuration files that stay on each developer's machine (gitignored) while providing consistent agent collaboration guidelines.
+
+**Key Features**:
+- One-command setup for team AI projects
+- Creates Claude.local.md with personal preferences (gitignored)
+- Sets up .claude/settings.local.json with SessionStart hooks
+- Includes safe command permissions by default
+- Creates .agent/PLANS.md with agent collaboration guidelines
+- Automatically updates .gitignore to exclude local files
+
+**What Gets Created**:
+- `Claude.local.md` - Personal preferences for Claude Code behavior
+- `.claude/settings.local.json` - Local settings with hooks and safe permissions
+- `.agent/PLANS.md` - Comprehensive agent collaboration guidelines
+- `.gitignore` - Updated to exclude local AI configuration files
+
+**Use Cases**:
+- Starting a new project with team AI support
+- Setting up consistent agent behavior across team members
+- Ensuring local preferences don't cause team conflicts
+- Providing guidelines for execution plan creation
+
+[📖 Full Documentation →](./init-team-ai/README.md)
 
 ## Quick Start
 
@@ -91,6 +121,7 @@ All skills are designed to work seamlessly within Claude Code:
 | Skill | Name | Description | Status |
 |-------|------|-------------|--------|
 | [See Terminal](./see_terminal/) | `see-terminal` | Capture, analyze, and control tmux pane contents | ✅ Stable |
+| [Init Team AI](./init-team-ai/) | `init-team-ai` | Initialize projects with team AI collaboration setup | ✅ Stable |
 
 _More skills coming soon!_
 
