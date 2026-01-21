@@ -1,7 +1,9 @@
-# Claude Code local settings
+# Claude Code local settings (but NOT templates)
 .claude/
 *.local.json
+!*/templates/*.local.json
 Claude.local.md
+!*/templates/Claude.local.md
 
 # Operating System files
 .DS_Store

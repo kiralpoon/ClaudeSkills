@@ -1,0 +1,49 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(pwd:*)",
+      "Bash(echo:*)",
+      "Bash(cd:*)",
+      "Bash(which:*)",
+      "Bash(whereis:*)",
+      "Bash(date:*)",
+      "Bash(whoami:*)",
+      "Bash(hostname:*)",
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(ps:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(tmux:*)",
+      "Bash(sed:*)",
+      "Bash(tail:*)",
+      "Bash(head:*)",
+      "Bash(sleep:*)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -f Agents.md ]; then echo '====================================' && echo 'Agent Behavior (Agents.md):' && echo '====================================' && cat Agents.md && echo '===================================='; fi"
+          },
+          {
+            "type": "command",
+            "command": "echo '' && echo '====================================' && echo 'Local Preferences (Claude.local.md):' && echo '====================================' && cat Claude.local.md && echo '===================================='"
+          },
+          {
+            "type": "command",
+            "command": "if [ -f .agent/PLANS.md ]; then echo '' && echo '====================================' && echo 'ExecPlan Guidelines (.agent/PLANS.md):' && echo '====================================' && echo 'Detailed ExecPlan authoring guidelines available at .agent/PLANS.md' && echo 'Follow these guidelines when creating execution plans.' && echo '===================================='; fi"
+          }
+        ]
+      }
+    ]
+  }
+}
