@@ -85,8 +85,21 @@ echo "Waiting for prompt in pane $PANE (timeout: ${TIMEOUT}s)..."
 
 poll_count=0
 while ((poll_count++ < MAX_POLLS)); do
-  output=$(tmux capture-pane -t "$PANE" -p -S -10)
+  output=$(tmux capture-pane -t "$PANE" -p -S -50)
   last_line=$(echo "$output" | sed '/^[[:space:]]*$/d' | tail -1)
+
+  # Check for Claude Code permission prompts FIRST (before regular prompts)
+  # Permission dialogs can have prompt characters in them that would cause false positives
+  if echo "$output" | grep -qF "Do you want to proceed?"; then
+    elapsed_decisecs=$((poll_count * 2))
+    elapsed_secs=$((elapsed_decisecs / 10))
+    elapsed_tenths=$((elapsed_decisecs % 10))
+    echo "✓ Permission prompt detected after ${elapsed_secs}.${elapsed_tenths} seconds"
+    echo ""
+    echo "=== Pane output ==="
+    tmux capture-pane -t "$PANE" -p -S -50
+    exit 0
+  fi
 
   # Check last line for prompt (at end OR at beginning of line)
   if [[ "$last_line" =~ (\$|#|%|❯|›)[[:space:]]*$ ]] || [[ "$last_line" =~ ^[[:space:]]*(❯|›|\$|#|%) ]]; then
@@ -173,6 +186,11 @@ exit 1
 /tmux-wait prompt 0 60
 ```
 
+**Wait for permission prompts (auto-detected by prompt mode):**
+```
+/tmux-wait prompt 0 60
+```
+
 **Execute command and wait:**
 ```
 /tmux-wait command 1 npm test
@@ -180,12 +198,7 @@ exit 1
 
 **Wait for specific output:**
 ```
-/tmux-wait output 0 "Team AI Initialization Complete" 60
-```
-
-**Monitor for permission prompt:**
-```
-/tmux-wait output 0 "Do you want to proceed?" 10
+/tmux-wait output 0 "Build complete" 60
 ```
 
 ## Proper Workflow: When to Use Each Mode
@@ -205,11 +218,13 @@ This is your **default choice** after executing any command:
 - After approving permissions
 - After starting applications (like Claude)
 - Any time you need to know "is the command done?"
+- Waiting for Claude Code permission prompts (auto-detected!)
 
 **Why it's better:**
 - Detects when command finishes, regardless of output
 - No assumptions about specific success messages
 - Works for any command that returns to a prompt
+- Automatically detects Claude Code permission prompts
 - Fast and reliable
 
 **Then check what happened:**
@@ -227,9 +242,9 @@ Only use this when you need to detect **specific text that you KNOW will appear*
 ```
 
 **When to use:**
-- Permission prompts: `/tmux-wait output 0 "Do you want to proceed?" 10`
 - User input prompts: `/tmux-wait output 0 "Enter password:" 30`
 - Specific error patterns: `/tmux-wait output 0 "Build failed" 60`
+- Waiting for very specific text that's not a standard prompt
 
 **When NOT to use:**
 - ❌ Completion messages that may vary or not exist
@@ -263,13 +278,13 @@ tmux send-keys -t 0 "/init-team-ai" Enter
 sleep 1
 tmux send-keys -t 0 Enter
 
-# 2. Wait for permission prompt (we KNOW this specific text will appear)
-/tmux-wait output 0 "Do you want to proceed?" 10
+# 2. Wait for permission prompt (prompt mode auto-detects it!)
+/tmux-wait prompt 0 60
 
 # 3. Approve permission
 tmux send-keys -t 0 Enter
 
-# 4. Wait for command to finish (use prompt mode - DON'T search for completion text!)
+# 4. Wait for command to finish
 /tmux-wait prompt 0 60
 
 # 5. Check what actually happened
@@ -277,6 +292,8 @@ tmux send-keys -t 0 Enter
 # If you need more context:
 /see-terminal 0 100
 ```
+
+**Note:** The `prompt` mode now automatically detects Claude Code permission prompts ("Do you want to proceed?"), so you don't need to use `output` mode for them. This makes the workflow simpler and faster.
 
 ### Quick Decision Guide
 

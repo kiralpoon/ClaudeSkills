@@ -62,6 +62,9 @@ Wait for shell or Claude prompt to return:
 **Detects:**
 - Shell prompts: `$`, `#`, `%`
 - Claude prompts: `❯`, `›`
+- Claude Code permission prompts (auto-detected!)
+
+**Note:** The prompt mode captures 50 lines and checks for permission prompts BEFORE checking for regular prompts, ensuring reliable detection even when permission dialogs have prompt characters in them.
 
 ### 3. Wait for Output Text
 
@@ -92,9 +95,20 @@ tmux send-keys -t 0 "/init-team-ai" Enter
 sleep 1
 tmux send-keys -t 0 Enter
 
-# Wait for completion
-/tmux-wait output 0 "Team AI Initialization Complete" 60
+# Wait for permission prompt (auto-detected!)
+/tmux-wait prompt 0 60
+
+# Approve it
+tmux send-keys -t 0 Enter
+
+# Wait for command to finish
+/tmux-wait prompt 0 60
+
+# Check what happened (use /see-terminal for full context)
+/see-terminal 0
 ```
+
+**Key improvement:** Using `prompt` mode for everything is more reliable than searching for specific completion text. Permission prompts are now auto-detected!
 
 ### Running Tests
 
@@ -110,15 +124,17 @@ tmux send-keys -t 1 "npm test" Enter
 ### Monitoring Permission Prompts
 
 ```bash
-# After sending a command, wait for permission prompt
-/tmux-wait output 0 "Do you want to proceed?" 10
+# After sending a command, prompt mode auto-detects permission prompts!
+/tmux-wait prompt 0 60
 
-# Auto-approve with option 2
+# Auto-approve with option 2 (don't ask again)
 tmux send-keys -t 0 Down Enter
 
 # Wait for next step
-/tmux-wait prompt 0 30
+/tmux-wait prompt 0 60
 ```
+
+**Note:** No need to use `output` mode for permission prompts anymore! The `prompt` mode now detects them automatically by checking for "Do you want to proceed?" BEFORE checking for regular prompts.
 
 ## Benefits
 
@@ -199,16 +215,24 @@ tmux wait-for signal  # Blocks until signal sent
 
 ### Prompt Detection
 
-Uses intelligent regex pattern matching:
+Uses intelligent multi-stage detection with 50-line capture:
+
 ```bash
-# Detects these prompt patterns at line start OR line end:
+# Stage 1: Check for permission prompts FIRST (prevents false positives)
+grep -qF "Do you want to proceed?"
+
+# Stage 2: Check for prompt patterns at line start OR line end:
 $ # %     # Shell prompts (bash, zsh, sh, root)
 ❯ ›       # Claude Code prompts
 
-# Special handling for Claude Code idle state:
+# Stage 3: Special handling for Claude Code idle state:
 # When "? for shortcuts" is detected, searches last 5 lines
 # for any prompt character - handles dynamic suggestion text
 ```
+
+**Key improvements:**
+- 50-line capture (up from 10) ensures permission prompts are detected even with lots of output above them
+- Permission check happens BEFORE prompt check to avoid false positives from `❯` characters in permission dialogs
 
 ### Output Monitoring
 
