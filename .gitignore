@@ -79,3 +79,8 @@ $RECYCLE.BIN/
 
 # Linux
 .directory
+
+
+# Claude Code local settings (added by init-team-ai)
+Agents.md
+.agent/

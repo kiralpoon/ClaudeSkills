@@ -1,0 +1,10 @@
+# Claude Code local settings
+.claude/
+*.local.json
+Agents.md
+Claude.local.md
+.agent/
+
+# Operating System files
+.DS_Store
+Thumbs.db

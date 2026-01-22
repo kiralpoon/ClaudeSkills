@@ -94,25 +94,46 @@ Quickly initialize new projects with team AI collaboration configuration. Create
 - Git for cloning this repository
 - WSL or Linux environment (for most skills)
 
-### Installation
+### Recommended Installation (via Claude)
+
+**Why this method?** Installing skills via Claude ensures proper permission handling. The skills use complex bash scripts that require pre-approved permissions - letting Claude install them avoids repeated permission prompts during usage.
 
 1. **Clone the repository**:
    ```bash
    git clone https://github.com/kiralpoon/ClaudeSkills.git
-   cd ClaudeSkills
    ```
 
-2. **Install a skill**:
-   ```bash
-   cd see-terminal
-   ./install.sh
-   ```
-
-3. **Restart Claude Code**:
+2. **Start Claude Code**:
    ```bash
    claude
-   # The skill is now available - Claude will use it when appropriate
    ```
+
+3. **Ask Claude to install the skills**:
+   ```
+   Install all skills from ~/Projects/ClaudeSkills (or wherever you cloned it)
+   ```
+
+   Claude will run each `install.sh` script and handle any permission prompts.
+
+4. **Initialize your project with proper permissions**:
+   ```
+   /init-team-ai
+   ```
+
+   This creates `.claude/settings.local.json` with pre-approved permissions for the tmux skills, eliminating permission prompts during normal usage.
+
+### Alternative: Manual Installation
+
+If you prefer manual installation:
+
+```bash
+cd ClaudeSkills
+./see-terminal/install.sh
+./tmux-wait/install.sh
+./init-team-ai/install.sh
+```
+
+**Note**: With manual installation, you'll need to run `/init-team-ai` in your target project to set up pre-approved permissions, or you'll face permission prompts when using the skills.
 
 Each skill has its own `install.sh` script for easy installation and an `uninstall.sh` for removal.
 

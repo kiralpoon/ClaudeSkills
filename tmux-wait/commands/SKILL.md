@@ -1,15 +1,138 @@
 ---
 name: tmux-wait
-description: Smart tmux command execution and waiting using event-driven tmux wait-for
-argument-hint: <mode> <pane> [args...]
+description: "USE THIS instead of sleep+polling when waiting for tmux commands, prompts, or specific output"
+argument-hint: prompt <pane> [timeout] | output <pane> <text> [timeout] | command <pane> <cmd>
 allowed-tools: Bash(tmux:*), Bash(sleep:*), Bash(echo:*), Bash(sed:*), Bash(tail:*), Bash(grep:*)
 ---
 
 # Tmux Smart Wait
 
-This skill provides event-driven waiting for tmux pane commands using `tmux wait-for`, eliminating the need for polling loops.
+## ⚠️ EXECUTE IMMEDIATELY ⚠️
 
-## Permission Requirements
+**You MUST execute the bash code below using the Bash tool NOW. Do not just read these instructions.**
+
+Arguments received: `$ARGS`
+
+Parse the arguments:
+- **$1** = mode (`command`, `prompt`, or `output`)
+- **$2** = pane number (0, 1, 2, etc.)
+- **$3+** = additional arguments (depends on mode)
+
+**Based on $1, EXECUTE the corresponding bash script below using the Bash tool:**
+
+---
+
+### If mode is `command`: EXECUTE THIS
+
+```bash
+PANE="<$2>"
+COMMAND="<$3 and remaining args>"
+SIGNAL="cmdwait-${RANDOM}-$$"
+
+echo "Executing in pane $PANE: $COMMAND"
+tmux send-keys -t "$PANE" "$COMMAND; tmux wait-for -S $SIGNAL" Enter
+tmux wait-for "$SIGNAL"
+echo ""
+echo "=== Command completed. Output ==="
+tmux capture-pane -t "$PANE" -p -S -50
+```
+
+---
+
+### If mode is `prompt`: EXECUTE THIS
+
+```bash
+PANE="<$2>"
+TIMEOUT="${3:-30}"
+MAX_POLLS=$((TIMEOUT * 5))
+
+echo "Waiting for prompt in pane $PANE (timeout: ${TIMEOUT}s)..."
+
+poll_count=0
+while ((poll_count++ < MAX_POLLS)); do
+  output=$(tmux capture-pane -t "$PANE" -p -S -50)
+  last_line=$(echo "$output" | sed '/^[[:space:]]*$/d' | tail -1)
+
+  if echo "$output" | grep -qF "Do you want to proceed?"; then
+    elapsed=$((poll_count * 2 / 10))
+    echo "✓ Permission prompt detected after ${elapsed}s"
+    echo ""
+    echo "=== Pane output ==="
+    tmux capture-pane -t "$PANE" -p -S -50
+    exit 0
+  fi
+
+  if [[ "$last_line" =~ (\$|#|%|❯|›)[[:space:]]*$ ]] || [[ "$last_line" =~ ^[[:space:]]*(❯|›|\$|#|%) ]]; then
+    elapsed=$((poll_count * 2 / 10))
+    echo "✓ Prompt detected after ${elapsed}s"
+    echo ""
+    echo "=== Pane output ==="
+    tmux capture-pane -t "$PANE" -p -S -50
+    exit 0
+  fi
+
+  if [[ "$last_line" =~ (for shortcuts) ]]; then
+    last_5_lines=$(echo "$output" | sed '/^[[:space:]]*$/d' | tail -5)
+    if echo "$last_5_lines" | grep -qE '^\s*(❯|›|\$|#|%)'; then
+      elapsed=$((poll_count * 2 / 10))
+      echo "✓ Prompt detected after ${elapsed}s"
+      echo ""
+      echo "=== Pane output ==="
+      tmux capture-pane -t "$PANE" -p -S -50
+      exit 0
+    fi
+  fi
+
+  sleep 0.2
+done
+
+echo "✗ Timeout after $TIMEOUT seconds"
+echo ""
+echo "=== Pane output ==="
+tmux capture-pane -t "$PANE" -p -S -50
+exit 1
+```
+
+---
+
+### If mode is `output`: EXECUTE THIS
+
+```bash
+PANE="<$2>"
+SEARCH_TEXT="<$3>"
+TIMEOUT="${4:-30}"
+MAX_POLLS=$((TIMEOUT * 5))
+
+echo "Waiting for text in pane $PANE: \"$SEARCH_TEXT\" (timeout: ${TIMEOUT}s)..."
+
+poll_count=0
+while ((poll_count++ < MAX_POLLS)); do
+  output=$(tmux capture-pane -t "$PANE" -p -S -50)
+
+  if echo "$output" | grep -qF "$SEARCH_TEXT"; then
+    elapsed=$((poll_count * 2 / 10))
+    echo "✓ Found text after ${elapsed}s"
+    echo ""
+    echo "=== Pane output ==="
+    echo "$output"
+    exit 0
+  fi
+
+  sleep 0.2
+done
+
+echo "✗ Timeout after $TIMEOUT seconds - text not found"
+echo ""
+echo "=== Pane output ==="
+tmux capture-pane -t "$PANE" -p -S -50
+exit 1
+```
+
+---
+
+## Reference Documentation
+
+### Permission Requirements
 
 **IMPORTANT:** This skill uses complex bash scripts with loops and variables. For it to work without permission prompts, you must add `"Bash"` to your `.claude/settings.local.json` allow list:
 
@@ -30,15 +153,15 @@ Claude Code's permission system uses prefix matching for commands. Patterns like
 
 **Note:** If you use `/init-team-ai` skill, this permission will be automatically added to your project's settings.
 
-## Usage Modes
+### Usage Modes
 
 The skill supports three modes:
 
-1. **command** - Execute a command and wait for completion using `tmux wait-for`
+1. **command** - Execute a command and wait for completion using `tmux wait-for` (shortcut, skips safety checks)
 2. **prompt** - Wait for shell/Claude prompt to return
 3. **output** - Wait for specific text to appear in output
 
-## Parameters
+### Parameters
 
 Arguments are provided as: `<mode> <pane> [additional args...]`
 
@@ -46,138 +169,11 @@ Arguments are provided as: `<mode> <pane> [additional args...]`
 - **$2 (pane)**: Pane number (0, 1, 2) or position ({left}, {right}, {top}, {bottom})
 - **$3+**: Mode-specific arguments
 
-## Instructions
+### Mode Syntax
 
-Based on the mode ($1), generate the appropriate bash commands:
-
-### Mode: command
-
-**Syntax:** `command <pane> <command-to-run>`
-
-Execute a command in the pane and wait for completion using `tmux wait-for`:
-
-```bash
-PANE="$2"
-shift 2
-COMMAND="$*"
-SIGNAL="cmdwait-${RANDOM}-$$"
-
-echo "Executing in pane $PANE: $COMMAND"
-tmux send-keys -t "$PANE" "$COMMAND; tmux wait-for -S $SIGNAL" Enter
-tmux wait-for "$SIGNAL"
-echo ""
-echo "=== Command completed. Output ==="
-tmux capture-pane -t "$PANE" -p -S -50
-```
-
-### Mode: prompt
-
-**Syntax:** `prompt <pane> [timeout]`
-
-Wait for shell prompt or Claude prompt to return:
-
-```bash
-PANE="$2"
-TIMEOUT="${3:-30}"
-MAX_POLLS=$((TIMEOUT * 5))
-
-echo "Waiting for prompt in pane $PANE (timeout: ${TIMEOUT}s)..."
-
-poll_count=0
-while ((poll_count++ < MAX_POLLS)); do
-  output=$(tmux capture-pane -t "$PANE" -p -S -50)
-  last_line=$(echo "$output" | sed '/^[[:space:]]*$/d' | tail -1)
-
-  # Check for Claude Code permission prompts FIRST (before regular prompts)
-  # Permission dialogs can have prompt characters in them that would cause false positives
-  if echo "$output" | grep -qF "Do you want to proceed?"; then
-    elapsed_decisecs=$((poll_count * 2))
-    elapsed_secs=$((elapsed_decisecs / 10))
-    elapsed_tenths=$((elapsed_decisecs % 10))
-    echo "✓ Permission prompt detected after ${elapsed_secs}.${elapsed_tenths} seconds"
-    echo ""
-    echo "=== Pane output ==="
-    tmux capture-pane -t "$PANE" -p -S -50
-    exit 0
-  fi
-
-  # Check last line for prompt (at end OR at beginning of line)
-  if [[ "$last_line" =~ (\$|#|%|❯|›)[[:space:]]*$ ]] || [[ "$last_line" =~ ^[[:space:]]*(❯|›|\$|#|%) ]]; then
-    elapsed_decisecs=$((poll_count * 2))
-    elapsed_secs=$((elapsed_decisecs / 10))
-    elapsed_tenths=$((elapsed_decisecs % 10))
-    echo "✓ Prompt detected after ${elapsed_secs}.${elapsed_tenths} seconds"
-    echo ""
-    echo "=== Pane output ==="
-    tmux capture-pane -t "$PANE" -p -S -50
-    exit 0
-  fi
-
-  # Check if last line is "? for shortcuts" - if so, look for prompt in last 5 lines
-  if [[ "$last_line" =~ (for shortcuts) ]]; then
-    # Get last 5 non-empty lines and check if any starts with a prompt character
-    last_5_lines=$(echo "$output" | sed '/^[[:space:]]*$/d' | tail -5)
-    if echo "$last_5_lines" | grep -qE '^\s*(❯|›|\$|#|%)'; then
-      elapsed_decisecs=$((poll_count * 2))
-      elapsed_secs=$((elapsed_decisecs / 10))
-      elapsed_tenths=$((elapsed_decisecs % 10))
-      echo "✓ Prompt detected after ${elapsed_secs}.${elapsed_tenths} seconds"
-      echo ""
-      echo "=== Pane output ==="
-      tmux capture-pane -t "$PANE" -p -S -50
-      exit 0
-    fi
-  fi
-
-  sleep 0.2
-done
-
-echo "✗ Timeout after $TIMEOUT seconds"
-echo ""
-echo "=== Pane output ==="
-tmux capture-pane -t "$PANE" -p -S -50
-exit 1
-```
-
-### Mode: output
-
-**Syntax:** `output <pane> <search-text> [timeout]`
-
-Wait for specific text to appear in pane output:
-
-```bash
-PANE="$2"
-SEARCH_TEXT="$3"
-TIMEOUT="${4:-30}"
-MAX_POLLS=$((TIMEOUT * 5))
-
-echo "Waiting for text in pane $PANE: \"$SEARCH_TEXT\" (timeout: ${TIMEOUT}s)..."
-
-poll_count=0
-while ((poll_count++ < MAX_POLLS)); do
-  output=$(tmux capture-pane -t "$PANE" -p -S -50)
-
-  # Use grep -F for fixed string matching (no regex interpretation)
-  if echo "$output" | grep -qF "$SEARCH_TEXT"; then
-    elapsed_decisecs=$((poll_count * 2))
-    elapsed_secs=$((elapsed_decisecs / 10))
-    elapsed_tenths=$((elapsed_decisecs % 10))
-    echo "✓ Found text after ${elapsed_secs}.${elapsed_tenths} seconds"
-    echo ""
-    echo "=== Pane output ==="
-    echo "$output"
-    exit 0
-  fi
-
-  sleep 0.2
-done
-
-echo "✗ Timeout after $TIMEOUT seconds - text not found"
-echo ""
-echo "=== Pane output ==="
-tmux capture-pane -t "$PANE" -p -S -50
-exit 1
-```
+- **command**: `/tmux-wait command <pane> <command-to-run>`
+- **prompt**: `/tmux-wait prompt <pane> [timeout]` (default timeout: 30s)
+- **output**: `/tmux-wait output <pane> <search-text> [timeout]` (default timeout: 30s)
 
 ## Usage Examples
 
@@ -301,10 +297,6 @@ Ask yourself: "Do I know the EXACT text that will appear?"
 
 - **NO** → Use `prompt` mode, then `/see-terminal` to check results
 - **YES, and it's a prompt requiring action** → Use `output` mode
-
-## Implementation Logic
-
-When invoked with arguments, parse $1 to determine the mode, then execute the corresponding bash commands shown above using the Bash tool. Use only the pre-approved commands listed in the allowed-tools field.
 
 ## Important Notes
 

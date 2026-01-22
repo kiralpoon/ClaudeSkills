@@ -114,25 +114,23 @@ Create or update the settings.local.json file:
 
 ```bash
 SETTINGS_FILE="$TARGET_DIR/.claude/settings.local.json"
+TEMPLATE_FILE="$SKILL_DIR/templates/settings.local.json"
 
 if [ -f "$SETTINGS_FILE" ]; then
-  # File exists - check if SessionStart hooks are present
-  if grep -q "Local Preferences from Claude.local.md" "$SETTINGS_FILE"; then
-    echo "  ✓ settings.local.json already has SessionStart hooks configured"
-  else
-    echo "  ⚠ settings.local.json exists but is missing SessionStart hooks"
-    echo "  📝 Adding SessionStart hooks automatically..."
+  # File exists - merge permissions and hooks from template
+  echo "  📝 Merging settings from template..."
 
-    # Use Python to merge JSON (Python is almost always available)
-    python3 - "$SETTINGS_FILE" << 'PYTHON_SCRIPT'
+  # Use Python to merge JSON (Python is almost always available)
+  python3 - "$SETTINGS_FILE" "$TEMPLATE_FILE" << 'PYTHON_SCRIPT'
 import json
 import sys
 
-if len(sys.argv) < 2:
-    print("  ✗ Error: settings file path not provided")
+if len(sys.argv) < 3:
+    print("  ✗ Error: settings file paths not provided")
     sys.exit(1)
 
 settings_file = sys.argv[1]
+template_file = sys.argv[2]
 
 # Read existing settings
 try:
@@ -142,96 +140,142 @@ except Exception as e:
     print(f"  ✗ Error reading settings file: {e}")
     sys.exit(1)
 
-# Define SessionStart hooks
-session_start_hooks = [
-    {
-        "hooks": [
-            {
-                "type": "command",
-                "command": "if [ -f Agents.md ]; then echo '====================================' && echo 'Agent Behavior (Agents.md):' && echo '====================================' && cat Agents.md && echo '===================================='; fi"
-            },
-            {
-                "type": "command",
-                "command": "echo '' && echo '====================================' && echo 'Local Preferences (Claude.local.md):' && echo '====================================' && cat Claude.local.md && echo '===================================='"
-            },
-            {
-                "type": "command",
-                "command": "if [ -f .agent/PLANS.md ]; then echo '' && echo '====================================' && echo 'ExecPlan Guidelines (.agent/PLANS.md):' && echo '====================================' && echo 'Detailed ExecPlan authoring guidelines available at .agent/PLANS.md' && echo 'Follow these guidelines when creating execution plans.' && echo '===================================='; fi"
-            }
-        ]
-    }
-]
+# Read template settings
+try:
+    with open(template_file, 'r') as f:
+        template = json.load(f)
+except Exception as e:
+    print(f"  ✗ Error reading template file: {e}")
+    sys.exit(1)
 
-# Add or update hooks section
-if "hooks" not in settings:
-    settings["hooks"] = {}
+# Merge permissions - add template permissions to existing (preserving user additions)
+if "permissions" not in settings:
+    settings["permissions"] = {}
 
-settings["hooks"]["SessionStart"] = session_start_hooks
+if "allow" not in settings["permissions"]:
+    settings["permissions"]["allow"] = []
+
+template_allow = template.get("permissions", {}).get("allow", [])
+existing_allow = settings["permissions"]["allow"]
+
+# Add template permissions that don't exist yet
+added_permissions = []
+for perm in template_allow:
+    if perm not in existing_allow:
+        existing_allow.append(perm)
+        added_permissions.append(perm)
+
+if added_permissions:
+    print(f"  ✓ Added {len(added_permissions)} permissions from template")
+else:
+    print("  ✓ All template permissions already present")
+
+# Merge hooks - update SessionStart hooks from template
+template_hooks = template.get("hooks", {}).get("SessionStart", [])
+if template_hooks:
+    if "hooks" not in settings:
+        settings["hooks"] = {}
+    settings["hooks"]["SessionStart"] = template_hooks
+    print("  ✓ SessionStart hooks updated from template")
 
 # Write back to file
 try:
     with open(settings_file, 'w') as f:
         json.dump(settings, f, indent=2)
-    print("  ✓ SessionStart hooks added successfully")
+    print("  ✓ Settings merged successfully")
 except Exception as e:
     print(f"  ✗ Error writing settings file: {e}")
     sys.exit(1)
 PYTHON_SCRIPT
 
-    if [ $? -ne 0 ]; then
-      echo "  ✗ Failed to add SessionStart hooks"
-      exit 1
-    fi
+  if [ $? -ne 0 ]; then
+    echo "  ✗ Failed to merge settings"
+    exit 1
   fi
 else
   # File doesn't exist - copy from template
-  cp "$SKILL_DIR/templates/settings.local.json" "$SETTINGS_FILE"
+  cp "$TEMPLATE_FILE" "$SETTINGS_FILE"
 
   if [ ! -f "$SETTINGS_FILE" ]; then
     echo "ERROR: Failed to create .claude/settings.local.json"
     exit 1
   fi
-  echo "  ✓ Created .claude/settings.local.json with SessionStart hooks"
+  echo "  ✓ Created .claude/settings.local.json with hooks and permissions"
 fi
 ```
 
 **Step 6: Update .gitignore**
 
-Check if .gitignore exists and update it:
+Merge .gitignore entries from template (preserves existing entries, adds missing ones):
 
 ```bash
-if [ ! -f "$TARGET_DIR/.gitignore" ]; then
-  echo "Creating new .gitignore file..."
-  cat > "$TARGET_DIR/.gitignore" << 'EOF'
-# Claude Code local settings
-.claude/
-*.local.json
-Agents.md
-Claude.local.md
-.agent/
+GITIGNORE_FILE="$TARGET_DIR/.gitignore"
+GITIGNORE_TEMPLATE="$SKILL_DIR/templates/.gitignore"
 
-# Operating System files
-.DS_Store
-Thumbs.db
-EOF
-  echo "  ✓ Created .gitignore"
+if [ ! -f "$GITIGNORE_FILE" ]; then
+  # File doesn't exist - copy from template
+  cp "$GITIGNORE_TEMPLATE" "$GITIGNORE_FILE"
+  echo "  ✓ Created .gitignore from template"
 else
-  echo "Updating existing .gitignore file..."
+  # File exists - merge entries from template
+  echo "  📝 Merging .gitignore entries from template..."
 
-  # Add Claude Code section if not present
-  if ! grep -q "# Claude Code local settings" "$TARGET_DIR/.gitignore"; then
-    cat >> "$TARGET_DIR/.gitignore" << 'EOF'
+  # Use Python to merge gitignore entries properly
+  python3 - "$GITIGNORE_FILE" "$GITIGNORE_TEMPLATE" << 'PYTHON_SCRIPT'
+import sys
 
-# Claude Code local settings
-.claude/
-*.local.json
-Agents.md
-Claude.local.md
-.agent/
-EOF
-    echo "  ✓ Updated .gitignore"
-  else
-    echo "  ℹ Claude Code entries already in .gitignore - skipping"
+if len(sys.argv) < 3:
+    print("  ✗ Error: file paths not provided")
+    sys.exit(1)
+
+gitignore_file = sys.argv[1]
+template_file = sys.argv[2]
+
+# Read existing gitignore
+try:
+    with open(gitignore_file, 'r') as f:
+        existing_lines = f.read().splitlines()
+except Exception as e:
+    print(f"  ✗ Error reading gitignore: {e}")
+    sys.exit(1)
+
+# Read template
+try:
+    with open(template_file, 'r') as f:
+        template_lines = f.read().splitlines()
+except Exception as e:
+    print(f"  ✗ Error reading template: {e}")
+    sys.exit(1)
+
+# Get non-empty, non-comment entries from template
+template_entries = [line for line in template_lines if line.strip() and not line.strip().startswith('#')]
+
+# Check which template entries are missing
+existing_set = set(line.strip() for line in existing_lines)
+missing_entries = [entry for entry in template_entries if entry.strip() not in existing_set]
+
+if not missing_entries:
+    print("  ✓ All template entries already present in .gitignore")
+    sys.exit(0)
+
+# Append missing entries with a section header
+try:
+    with open(gitignore_file, 'a') as f:
+        # Add newline if file doesn't end with one
+        if existing_lines and existing_lines[-1].strip():
+            f.write('\n')
+        f.write('\n# Claude Code local settings (added by init-team-ai)\n')
+        for entry in missing_entries:
+            f.write(entry + '\n')
+    print(f"  ✓ Added {len(missing_entries)} entries to .gitignore")
+except Exception as e:
+    print(f"  ✗ Error writing gitignore: {e}")
+    sys.exit(1)
+PYTHON_SCRIPT
+
+  if [ $? -ne 0 ]; then
+    echo "  ✗ Failed to merge .gitignore"
+    exit 1
   fi
 fi
 ```
@@ -276,6 +320,7 @@ echo "=========================================="
   - `templates/Claude.local.md` - Local preferences template
   - `templates/PLANS.md` - Detailed ExecPlan authoring guidelines template
   - `templates/settings.local.json` - Default settings with hooks and permissions
+  - `templates/.gitignore` - Gitignore entries for Claude Code local files
 - **Performance**: Files are copied instantly using `cp` command - no AI processing required
 - **Idempotency**: Running the skill multiple times is safe - existing files are preserved
 - **Error Handling**: All file creation operations are validated with error checks
@@ -285,10 +330,10 @@ echo "=========================================="
   - .agent/PLANS.md: Copied from template if doesn't exist (preserves customizations if exists)
   - settings.local.json:
     - If doesn't exist: Copied from template (permissions + hooks)
-    - If exists with SessionStart hooks: Skips (preserves user config)
-    - If exists without SessionStart hooks: **Automatically adds them using Python** (critical for system to work)
+    - If exists: **Merges permissions and hooks from template** (preserves user additions)
 - **JSON Merging**: Uses Python 3 (almost always available) to properly parse and merge JSON - no external dependencies required
-- **User Permissions Preserved**: Only SessionStart hooks are added or updated, existing permissions and other hooks are preserved
+- **Permission Merging**: Template permissions are added to existing permissions (user additions are preserved, template permissions are ensured)
+- **Gitignore Merging**: Template entries are added to existing .gitignore (user entries preserved, missing template entries added)
 - All created files are automatically gitignored to prevent accidental commits
 - The settings.local.json includes basic safe read-only commands in the allow list
 - The SessionStart hooks will display both Claude.local.md and notify about PLANS.md

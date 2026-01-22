@@ -1,342 +1,139 @@
 ---
 name: see-terminal
-description: Capture and control tmux pane contents
-argument-hint: [pane-target (optional, default: asks user)] [lines (optional, default: 50)]
+description: "Primary interface for ALL tmux pane interactions - viewing contents and executing commands"
+argument-hint: <pane> [lines] - view pane | use /tmux-wait for waiting operations
 allowed-tools: Bash(tmux:*), Skill(tmux-wait:*)
 ---
 
 # Tmux Pane Capture & Control
 
-## ⚠️ THIS IS THE DEFAULT TOOL FOR ALL TMUX OPERATIONS ⚠️
+## ⚠️ EXECUTE IMMEDIATELY ⚠️
 
-**CRITICAL: This skill is your PRIMARY and ONLY interface for ALL tmux pane interactions.**
+**You MUST execute the appropriate action NOW based on the context. Do not just read these instructions.**
 
-**Rules for tmux operations:**
-- ✅ **ALWAYS** use this `/see-terminal` skill for ANY tmux pane interaction
-- ✅ **ALWAYS** use this skill for both READ and CONTROL operations
-- ❌ **NEVER** use direct `tmux capture-pane` commands outside this skill
-- ❌ **NEVER** use direct `tmux send-keys` commands outside this skill
-- ❌ **NEVER** use direct `tmux list-panes` commands outside this skill
+Arguments received: `$ARGS`
+- **$1** = pane target (0, 1, 2, {left}, {right}, etc.) - optional
+- **$2** = lines to capture (default: 50) - optional
 
-**When to use this skill:**
-- User asks to check/view/read any pane → Use this skill
-- User asks to run commands in any pane → Use this skill
-- User asks to control/interact with any pane → Use this skill
-- ANY tmux-related request → Use this skill
+### Step 1: Determine Mode
 
-**This skill is comprehensive and handles:**
+**READ Mode** (user wants to view/analyze):
+- "check my terminal", "what's the error?", "show me the output"
+- → Go to Step 2A
+
+**CONTROL Mode** (user wants to execute commands):
+- "run npm test", "fix the error", "stop the server"
+- → Go to Step 2B
+
+---
+
+### Step 2A: READ Mode - EXECUTE THIS
+
+**If $1 (pane) is provided:**
+```bash
+tmux capture-pane -t <$1> -p -S -<$2 or 50>
+```
+
+**If $1 (pane) is NOT provided:**
+```bash
+tmux list-panes -F '#{pane_index}: #{pane_current_command} (#{pane_width}x#{pane_height})'
+```
+Then ask user which pane to capture.
+
+After capturing, analyze the output and report to user.
+
+---
+
+### Step 2B: CONTROL Mode - EXECUTE THIS
+
+1. **Classify command risk:**
+   - GREEN (auto-approve): `ls`, `cat`, `git status`, `pwd`
+   - YELLOW (ask user): `npm install`, `git commit`, `make`
+   - RED (strong warning): `rm -rf`, `sudo`, `--force`
+
+2. **If approved, execute:**
+```bash
+tmux send-keys -t <pane> "<command>" Enter
+```
+
+3. **Wait for completion - invoke /tmux-wait:**
+```
+/tmux-wait prompt <pane> 60
+```
+
+4. **Capture and verify results:**
+```bash
+tmux capture-pane -t <pane> -p -S -50
+```
+
+5. **Report results to user.**
+
+---
+
+## Reference Documentation
+
+### Primary Interface
+
+This skill is the PRIMARY interface for ALL tmux pane interactions.
+
+**Rules:**
+- ✅ Use `/see-terminal` for ANY tmux pane interaction
+- ✅ Use for both READ and CONTROL operations
+- ❌ Never use direct `tmux` commands outside this skill
+
+**Capabilities:**
 - Reading pane contents (READ mode)
 - Executing commands in panes (CONTROL mode)
-- Waiting for command completion (delegates to /tmux-wait)
+- Waiting for completion (delegates to /tmux-wait)
 - Claude slash command execution
 - Permission approval workflows
 
-**There is NO valid reason to use tmux commands outside this skill.**
+### Using /tmux-wait for Waiting
+
+**Always use /tmux-wait skill for waiting operations:**
+
+```
+/tmux-wait prompt 0 60      # Wait for prompt
+/tmux-wait output 0 "text"  # Wait for specific text
+/tmux-wait command 0 npm test  # Execute + wait (shortcut)
+```
+
+**Never write manual polling loops.**
+
+### Workflow Pattern
+
+After executing a command in CONTROL mode:
+1. `/tmux-wait prompt <pane> 60` - Wait for completion
+2. `/see-terminal <pane>` - Capture and analyze results
+3. Report to user
 
 ---
 
-## CRITICAL USAGE NOTE
+## READ Mode Details
 
-**Use /tmux-wait for all waiting operations.**
+### Analysis Instructions
 
-When you need to wait for a command to complete or monitor for specific output, **ALWAYS use the /tmux-wait skill**:
+After capturing pane output, analyze with focus on:
+1. **Current State**: What is the terminal showing?
+2. **Output Analysis**: Errors, build results, logs
+3. **Context**: What was happening?
+4. **Next Steps**: Suggest relevant actions
+5. **Error Detection**: Flag any issues
 
-**✅ CORRECT - Use /tmux-wait skill:**
-```
-# Wait for prompt to return
-/tmux-wait prompt 0 60
+### Error Handling
 
-# Wait for specific text to appear
-/tmux-wait output 0 "Build succeeded" 30
+- **"can't find pane: X"** → Pane doesn't exist
+- **"no server running"** → No tmux session active
+- **Invalid numeric values** → Line count must be positive integer
 
-# Execute command and wait automatically
-/tmux-wait command 1 npm test
-```
+### Parameters
 
-**❌ WRONG - Manual polling loops:**
-```bash
-# NEVER write manual polling loops!
-while ((poll_count++ < max_polls)); do
-  output=$(tmux capture-pane...)
-  sleep 0.2
-done
-```
-
-The `/tmux-wait` skill handles all waiting logic with pre-approved permissions. Never write manual polling loops.
-
-## Mode Detection
-
-Determine the user's intent based on their request:
-
-**READ Mode** - User wants to view/analyze terminal output:
-- "check my terminal"
-- "what's the error in pane 1?"
-- "show me the last 100 lines"
-- "did the build succeed?"
-
-**CONTROL Mode** - User wants to execute commands:
-- "fix the error"
-- "run npm install in pane 1"
-- "restart the build"
-- "stop the server in pane 1"
-- "send Ctrl+C to pane 0"
-
-For READ mode, proceed to the capture section below.
-For CONTROL mode, proceed to the Control Mode section.
-
-## Waiting for Commands with /tmux-wait
-
-**CRITICAL: Use /tmux-wait skill for ALL waiting operations.**
-
-The `/tmux-wait` skill provides three modes:
-
-### 1. Wait for Prompt Return
-
-Wait for shell prompt (`$`, `#`, `%`) or Claude prompt (`❯`, `›`) to return:
-
-```
-/tmux-wait prompt <pane> [timeout]
-```
-
-**Examples:**
-- `/tmux-wait prompt 0` - Wait up to 30s for prompt in pane 0
-- `/tmux-wait prompt 1 60` - Wait up to 60s for prompt in pane 1
-
-**Use this after:**
-- Sending any command that you need to wait for
-- Starting Claude Code
-- Running tests or builds
-
-### 2. Wait for Specific Output
-
-Wait for specific text to appear in pane output:
-
-```
-/tmux-wait output <pane> <search-text> [timeout]
-```
-
-**Examples:**
-- `/tmux-wait output 0 "Do you want to proceed?" 10` - Wait for permission prompt
-- `/tmux-wait output 1 "Build succeeded" 60` - Wait for build completion
-- `/tmux-wait output 0 "Team AI Initialization Complete"` - Wait for skill completion
-
-**Use this for:**
-- Permission prompts
-- Completion messages
-- Error messages
-- Any specific pattern you're monitoring
-
-### 3. Execute Command and Wait
-
-Execute a command and automatically wait for completion:
-
-```
-/tmux-wait command <pane> <command>
-```
-
-**Examples:**
-- `/tmux-wait command 1 npm test` - Run tests and wait
-- `/tmux-wait command 0 ls -la` - List files and wait
-
-**Use this for:**
-- Simple commands where you want to execute and wait in one step
-- Commands with predictable completion
-
-### Why Use /tmux-wait?
-
-✅ **No permission prompts** - All tools pre-approved when using `/init-team-ai`
-✅ **Event-driven** - `command` mode uses `tmux wait-for` (zero CPU, instant detection)
-✅ **Reliable** - Consistent timeout handling and error reporting
-✅ **Clean** - One line instead of 10+ line polling loops
-✅ **Maintainable** - All waiting logic in one place
-
-## Proper Workflow After Executing Commands
-
-**CRITICAL: After executing any command or skill, follow this pattern:**
-
-### The Correct Pattern
-
-After executing a command and approving any permissions:
-
-1. **Wait for prompt return** (indicates command completed):
-   ```
-   /tmux-wait prompt <pane> 60
-   ```
-
-2. **Capture and analyze the actual output** (start with 50 lines):
-   ```
-   /see-terminal <pane>
-   ```
-   Or if you need more context:
-   ```
-   /see-terminal <pane> 100
-   ```
-
-3. **Determine success/failure** based on what actually happened in the output
-
-**Why this pattern:**
-- The prompt return tells you the command finished
-- You then check WHAT actually happened
-- You're not making assumptions about specific success messages
-- 50 lines is usually enough; only use 100+ if you need more context
-
-### When to Use Each /tmux-wait Mode
-
-**Use `prompt` mode (MOST COMMON):**
-- After executing any command - default choice
-- After approving permissions
-- Any time you need to know "is it done?"
-- Example: `/tmux-wait prompt 0 60`
-
-**Use `output` mode (SPECIFIC CASES ONLY):**
-- Detecting permission prompts: `/tmux-wait output 0 "Do you want to proceed?" 10`
-- Waiting for specific user input prompts
-- Detecting specific error patterns you need to act on immediately
-- Example: `/tmux-wait output 0 "Build failed" 30`
-
-**❌ WRONG - Don't search for completion text that may not exist:**
-```
-# This assumes specific success text will appear and wastes time if it doesn't
-/tmux-wait output 0 "Team AI Initialization Complete" 60
-/tmux-wait output 0 "Build succeeded" 60
-```
-
-**✅ CORRECT - Wait for completion, then check what happened:**
-```
-# Wait for prompt (command finished)
-/tmux-wait prompt 0 60
-
-# Check what actually happened (start with 50 lines)
-/see-terminal 0
-
-# If 50 lines wasn't enough, try 100
-/see-terminal 0 100
-```
-
-**Example: Testing a Claude skill**
-```bash
-# Execute skill
-tmux send-keys -t 0 "/init-team-ai" Enter
-sleep 1
-tmux send-keys -t 0 Enter
-
-# Wait for permission prompt (specific text we know will appear)
-/tmux-wait output 0 "Do you want to proceed?" 10
-
-# Approve it
-tmux send-keys -t 0 Enter
-
-# Wait for command to finish (use prompt mode)
-/tmux-wait prompt 0 60
-
-# Check what happened (start with 50 lines)
-/see-terminal 0
-
-# If you need more context, use 100 lines
-/see-terminal 0 100
-```
-
-# Tmux Pane Content Capture (READ Mode)
-
-## Parameter Validation and Capture
-
-**Step 1: Validate pane parameter**
-
-Provided pane parameter: $1
-Provided lines parameter: $2
-
-Check the pane parameter:
-- If $1 is **provided and looks valid** (number like 0, 1, 2 or position like {left}, {right}):
-  - Use it directly - **skip pane listing**
-- If $1 is **empty** or **not provided**:
-  - First, list available panes using: `tmux list-panes -F '#{pane_index}: #{pane_current_command} (#{pane_width}x#{pane_height})' 2>&1`
-  - Present the available panes to the user
-  - Ask: "Which pane would you like to capture? Please specify the pane number (e.g., 0, 1, 2) or position (left, right)."
-  - Wait for user response and use their selection
-
-**Step 2: Determine line count**
-
-- If $2 is **empty** or **not provided**: **Automatically use 50 as the default** (no permission needed)
-- If $2 is **provided**: Use the specified number
-
-**Note**: For performance reasons, requesting more than 1000 lines may be slow. The default of 50 lines is usually sufficient for most debugging tasks.
-
-**Step 3: Capture the pane**
-
-Once you have validated the pane target and line count, use the Bash tool to capture the pane:
-
-```bash
-tmux capture-pane -t <pane> -p -S -<lines> 2>&1
-```
-
-Replace `<pane>` with the validated pane target (from user or $1).
-Replace `<lines>` with the line count (from $2 or default 50).
-
-After running the capture command, analyze the output below.
-
-## Analysis Instructions
-
-If the above capture succeeded (no error message):
-
-Analyze the captured terminal output with focus on:
-
-1. **Current State**: What is the terminal showing? What command was run?
-
-2. **Output Analysis**:
-   - If there are errors, identify them clearly
-   - If it's build output, summarize results
-   - If it's logs, highlight key events
-   - If it's command output, explain what it means
-
-3. **Context**: What was likely happening in this terminal session?
-
-4. **Next Steps**: Based on the output, suggest relevant actions or provide insights
-
-5. **Error Detection**: Flag any errors, warnings, or issues visible in the output
-
-## Error Handling
-
-If the capture command failed (error message present):
-
-Common errors and solutions:
-
-- **"can't find pane: X"** → The pane number/ID doesn't exist
-  - Check the available panes listed above
-  - Try a different pane number (0, 1, 2, etc.)
-
-- **"no server running"** → No tmux session is active
-  - Start a tmux session first with `tmux`
-  - Or run this command from within a tmux session
-
-- **Invalid numeric values** → If you see errors about invalid line numbers
-  - The line count parameter must be a positive integer
-  - Ask the user to request a valid number of lines
-
-- **Other errors** → Show the error and suggest troubleshooting
-
-## Parameters
-
-Both parameters are **optional**:
-
-- **pane-target** (optional): Pane number (0, 1, 2...) or relative position ({right}, {left}, etc.)
-  - If not provided or invalid, Claude will show available panes and ask user to select one
-  - Default behavior: Ask user for pane selection
-
-- **lines** (optional): Number of lines to capture from pane history
-  - If not provided, defaults to 50 lines
-  - Can be explicitly specified for more/less context
-
-Examples of what users might request:
-- "/see-terminal" → Shows panes, asks which to capture, uses 50 lines
-- "/see-terminal 0" → Captures pane 0, last 50 lines
-- "/see-terminal 1 100" → Captures pane 1, last 100 lines
-- "Check my terminal" → Shows panes, asks which to capture, uses 50 lines
-- "What's in pane 1?" → Captures pane 1, last 50 lines
-- "Show me the last 100 lines from the right pane" → Captures right pane, 100 lines
+- **pane-target** (optional): Pane number (0, 1, 2) or position ({right}, {left})
+- **lines** (optional): Number of lines to capture (default: 50)
 
 ---
 
-# Tmux Pane Control (CONTROL Mode)
+## CONTROL Mode Details
 
 ## Command Execution
 
