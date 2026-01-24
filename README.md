@@ -86,6 +86,27 @@ Quickly initialize new projects with team AI collaboration configuration. Create
 
 [📖 Full Documentation →](./init-team-ai/README.md)
 
+### 🌐 [Chrome MCP](./chrome-mcp/)
+
+**Skill**: `chrome-mcp`
+
+Setup and launch Chrome DevTools MCP for browser automation in WSL environments. One command to install the MCP, find Chrome, and start debugging.
+
+**Key Features**:
+- One-command MCP installation
+- Auto-detect Chrome installation on Windows
+- Split pane setup (Chrome on top, shell on bottom)
+- Automatic debugging port verification
+- Custom port support
+
+**Use Cases**:
+- Browser automation and testing
+- Web scraping with Claude's help
+- UI testing and screenshot capture
+- Form filling and navigation automation
+
+[📖 Full Documentation →](./chrome-mcp/README.md)
+
 ## Quick Start
 
 ### Prerequisites
@@ -166,6 +187,7 @@ All skills are designed to work seamlessly within Claude Code:
 | [See Terminal](./see-terminal/) | `see-terminal` | Capture, analyze, and control tmux pane contents | ✅ Stable |
 | [Tmux Wait](./tmux-wait/) | `tmux-wait` | Event-driven waiting for tmux pane commands | ✅ Stable |
 | [Init Team AI](./init-team-ai/) | `init-team-ai` | Initialize projects with team AI collaboration setup | ✅ Stable |
+| [Chrome MCP](./chrome-mcp/) | `chrome-mcp` | Setup Chrome DevTools MCP for browser automation | ✅ Stable |
 
 _More skills coming soon!_
 
