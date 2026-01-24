@@ -288,36 +288,36 @@ tmux send-keys -t {right} "npm test" Enter    # Execute in right pane
 tmux send-keys -t 0 C-c    # Send Ctrl+C to pane 0
 ```
 
-## Executing Claude Slash Commands in Controlled Panes
+## Sending Input to Claude Code in Controlled Panes
 
-**CRITICAL: Special handling required for ALL Claude Code slash commands**
+**CRITICAL: Special handling required for ALL input to Claude Code**
 
-When controlling a pane running Claude Code to execute ANY slash command (like `/init-team-ai`, `/exit`, `/init`, etc.):
+When controlling a pane running Claude Code, **ALL input** (slash commands AND regular text prompts) requires special handling.
 
 ### The Two-Enter Pattern
 
-**CRITICAL REQUIREMENT:** ALL slash commands in Claude Code require **TWO SEPARATE send-keys commands with a 1-second delay between them** - never combine them!
+**CRITICAL REQUIREMENT:** ALL input to Claude Code requires **TWO SEPARATE send-keys commands with a 1-second delay between them** - never combine them!
 
 ```bash
-# STEP 1: Send the slash command with first Enter
-tmux send-keys -t <pane> "/command" Enter
+# STEP 1: Send the text/command with first Enter
+tmux send-keys -t <pane> "your input here" Enter
 
-# STEP 2: Wait 1 second for autocomplete to load
+# STEP 2: Wait 1 second for autocomplete/UI to process
 sleep 1
 
-# STEP 3: Send second Enter to execute
+# STEP 3: Send second Enter to submit
 tmux send-keys -t <pane> Enter
 ```
 
 **Why this pattern is required:**
-1. First Enter: Types the command and triggers Claude's autocomplete system
-2. Sleep 1 second: Gives autocomplete UI time to load and display
-3. Second Enter: Executes the command after autocomplete is shown
+1. First Enter: Types the input and triggers Claude's autocomplete/input system
+2. Sleep 1 second: Gives the UI time to process and display
+3. Second Enter: Submits the input for processing
 
-**This applies to ALL slash commands:**
-- Skills: `/init-team-ai`, `/see-terminal`, `/tmux-wait`
-- Built-in commands: `/exit`, `/init`, `/help`, `/clear`
-- Any command starting with `/`
+**This applies to ALL input types:**
+- Slash commands: `/init-team-ai`, `/exit`, `/init`, `/help`, `/clear`, `/compact`
+- Regular text prompts: "What does this code do?", "Fix the bug", etc.
+- Any text you send to Claude Code
 
 **CRITICAL: Verify execution after second Enter:**
 
@@ -361,14 +361,19 @@ tmux send-keys -t <pane> "/exit" Enter
 sleep 1
 tmux send-keys -t <pane> Enter
 
+# Example 3: Sending a regular text prompt
+tmux send-keys -t <pane> "What does Claude.local.md say about commits?" Enter
+sleep 1
+tmux send-keys -t <pane> Enter
+
 # Then immediately verify it executed (use /see-terminal skill)
 ```
 
 **Remember:**
-1. You MUST use two separate Bash tool calls for ANY slash command
+1. You MUST use two separate Bash tool calls for ANY input to Claude Code
 2. You MUST add `sleep 1` between them
-3. You MUST verify the command started executing after the second Enter
-4. If autocomplete is still showing, press Enter again
+3. You MUST verify the input was submitted after the second Enter
+4. If the input is still in the text field, press Enter again
 
 ### Approving Claude Permissions
 
@@ -462,8 +467,8 @@ tmux send-keys -t 0 Enter
 ```
 
 **Key points:**
-- ✅ Two Enters for ALL slash commands (skills, /exit, /init, etc.)
-- ✅ Sleep 1 second between the two Enters for autocomplete to load
+- ✅ Two Enters for ALL input to Claude Code (slash commands AND regular prompts)
+- ✅ Sleep 1 second between the two Enters for UI to process
 - ✅ Down arrow navigation for permission selection
 - ✅ Use `/tmux-wait` for all waiting operations (no manual polling!)
 - ✅ Use `/see-terminal` to capture and analyze final state
@@ -591,8 +596,8 @@ tmux send-keys -t 0 Enter
 Or wait for user to manually exit.
 
 **Key learnings applied:**
-- ✅ Two Enters for ALL slash commands (skills, /exit, /init, etc.)
-- ✅ Sleep 1 second between the two Enters for autocomplete to load
+- ✅ Two Enters for ALL input to Claude Code (slash commands AND regular prompts)
+- ✅ Sleep 1 second between the two Enters for UI to process
 - ✅ Down arrow navigation for permission selection
 - ✅ Use `/tmux-wait` for all waiting operations - NO manual polling loops!
 - ✅ Use `/see-terminal` after waiting to capture and analyze final state
