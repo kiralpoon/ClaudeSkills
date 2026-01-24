@@ -7,7 +7,24 @@ allowed-tools: Bash(tmux:*), Bash(sleep:*), Bash(echo:*), Bash(sed:*), Bash(tail
 
 # Tmux Smart Wait
 
-## ⚠️ EXECUTE IMMEDIATELY ⚠️
+## 🔑 FOR CALLERS: How to Invoke This Skill
+
+**When you need to wait for something in a tmux pane, invoke this skill - don't write your own loops.**
+
+```
+# Use the Skill tool to invoke:
+/tmux-wait prompt 0 60      # Wait for shell prompt
+/tmux-wait output 0 "text"  # Wait for specific text
+/tmux-wait command 0 cmd    # Execute and wait
+```
+
+**NEVER copy the bash code below into your own scripts. ALWAYS invoke via `/tmux-wait`.**
+
+---
+
+## ⚠️ FOR SKILL EXECUTION: Execute Immediately ⚠️
+
+**(This section is for when the skill has been invoked and Claude is executing it)**
 
 **You MUST execute the bash code below using the Bash tool NOW. Do not just read these instructions.**
 
@@ -62,7 +79,7 @@ while ((poll_count++ < MAX_POLLS)); do
     exit 0
   fi
 
-  if [[ "$last_line" =~ (\$|#|%|❯|›)[[:space:]]*$ ]] || [[ "$last_line" =~ ^[[:space:]]*(❯|›|\$|#|%) ]]; then
+  if [[ "$last_line" =~ (\$|#|%|❯|›|>)[[:space:]]*$ ]] || [[ "$last_line" =~ ^[[:space:]]*(❯|›|\$|#|%|>) ]] || [[ "$last_line" =~ ^PS[[:space:]].*\>$ ]]; then
     elapsed=$((poll_count * 2 / 10))
     echo "✓ Prompt detected after ${elapsed}s"
     echo ""
@@ -73,7 +90,7 @@ while ((poll_count++ < MAX_POLLS)); do
 
   if [[ "$last_line" =~ (for shortcuts) ]]; then
     last_5_lines=$(echo "$output" | sed '/^[[:space:]]*$/d' | tail -5)
-    if echo "$last_5_lines" | grep -qE '^\s*(❯|›|\$|#|%)'; then
+    if echo "$last_5_lines" | grep -qE '^\s*(❯|›|\$|#|%|>)' || echo "$last_5_lines" | grep -qE '^PS\s.*>'; then
       elapsed=$((poll_count * 2 / 10))
       echo "✓ Prompt detected after ${elapsed}s"
       echo ""
@@ -305,3 +322,18 @@ Ask yourself: "Do I know the EXACT text that will appear?"
 - grep uses -F flag for literal string matching (no regex issues)
 - Elapsed time calculation uses pure bash arithmetic (no external tools)
 - The `tail` command is now in the allowed-tools list
+
+## Supported Shell Prompts
+
+The `prompt` mode detects the following shell prompts:
+
+| Shell | Prompt Pattern | Example |
+|-------|----------------|---------|
+| Bash | `$` | `user@host:~$` |
+| Root | `#` | `root@host:~#` |
+| Zsh | `%` | `user@host %` |
+| Fish/Starship | `❯` or `›` | `~/projects ❯` |
+| PowerShell | `>` or `PS ...>` | `PS C:\Users\name>` |
+| Claude Code | `❯` | `❯` |
+
+**PowerShell Support**: Works with PowerShell running inside tmux panes in WSL. Both standard prompts (`PS C:\>`) and verbose UNC paths (`PS Microsoft.PowerShell.Core\FileSystem::\\wsl.localhost\...>`) are detected.

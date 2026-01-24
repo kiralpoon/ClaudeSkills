@@ -7,6 +7,22 @@ allowed-tools: Bash(tmux:*), Skill(tmux-wait:*)
 
 # Tmux Pane Capture & Control
 
+## 🚫 CRITICAL: NO MANUAL WAITING LOOPS 🚫
+
+**BEFORE writing ANY bash code that waits for something, STOP and use the `/tmux-wait` skill instead.**
+
+| ❌ NEVER DO THIS | ✅ ALWAYS DO THIS |
+|------------------|-------------------|
+| `while ... do sleep ... done` | `/tmux-wait prompt <pane> 60` |
+| `sleep 5 && tmux capture-pane` | `/tmux-wait prompt <pane>` then `/see-terminal <pane>` |
+| Any bash polling loop | Invoke `/tmux-wait` skill |
+
+**This is mandatory. Use the Skill tool to invoke `/tmux-wait` for ALL waiting operations.**
+
+**Exception:** Short `sleep 1` delays for UI timing (e.g., between two Enters for slash commands) are OK - those are NOT waiting loops.
+
+---
+
 ## ⚠️ EXECUTE IMMEDIATELY ⚠️
 
 **You MUST execute the appropriate action NOW based on the context. Do not just read these instructions.**
@@ -413,19 +429,24 @@ tmux capture-pane -t 0 -p -S -50
 
 If autocomplete still showing, press Enter again.
 
-Monitor for permission prompts and completion:
+Wait for permission prompt or completion (prompt mode auto-detects both):
 ```
-/tmux-wait output 0 "Do you want to proceed?" 10
+/tmux-wait prompt 0 60
 ```
 
-If permission prompt found, approve it:
+Check what happened:
+```
+/see-terminal 0 100
+```
+
+If permission prompt shown, approve it:
 ```bash
 tmux send-keys -t 0 Down Enter
 ```
 
-Wait for skill completion:
+Wait for skill to complete:
 ```
-/tmux-wait output 0 "Team AI Initialization Complete" 60
+/tmux-wait prompt 0 60
 ```
 
 Verify completion:
@@ -535,20 +556,24 @@ tmux send-keys -t 0 Enter
 ```
 **CRITICAL:** These MUST be two separate Bash tool calls, NOT combined in one command!
 
-**Step 5: Monitor for permission prompts and completion**
-Wait for permission prompt:
+**Step 5: Wait for permission prompt or completion**
 ```
-/tmux-wait output 0 "Do you want to proceed?" 10
+/tmux-wait prompt 0 60
 ```
 
-If found, approve with option 2:
+Check what happened:
+```
+/see-terminal 0 100
+```
+
+If permission prompt shown, approve with option 2:
 ```bash
 tmux send-keys -t 0 Down Enter
 ```
 
-Wait for skill completion:
+Wait for skill to complete:
 ```
-/tmux-wait output 0 "Team AI Initialization Complete" 60
+/tmux-wait prompt 0 60
 ```
 
 **Step 6: Verify completion**
