@@ -44,6 +44,15 @@
             "command": "if [ -f .agent/PLANS.md ]; then echo '' && echo '====================================' && echo 'ExecPlan Guidelines (.agent/PLANS.md):' && echo '====================================' && echo 'Detailed ExecPlan authoring guidelines available at .agent/PLANS.md' && echo 'Follow these guidelines when creating execution plans.' && echo '===================================='; fi"
           }
         ]
+      },
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '' && echo '⚠️ POST-COMPACTION REMINDER ⚠️' && echo '====================================' && echo 'Context was compacted. Re-reading local preferences:' && echo '====================================' && cat Claude.local.md && echo '===================================='"
+          }
+        ]
       }
     ]
   }
