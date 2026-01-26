@@ -25,6 +25,23 @@
       "Bash(tail:*)",
       "Bash(head:*)",
       "Bash(sleep:*)"
+    ],
+    "deny": [
+      "Read(**/.env*)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/*.p12)",
+      "Read(**/*.pfx)",
+      "Read(**/secrets/**)",
+      "Read(**/.aws/**)",
+      "Read(**/.ssh/id_*)",
+      "Read(**/credentials.json)",
+      "Read(**/auth-config.*)",
+      "Read(**/*secret*)",
+      "Read(**/*password*)",
+      "Read(**/*token*)",
+      "Read(**/.npmrc)",
+      "Read(**/.pypirc)"
     ]
   },
   "hooks": {

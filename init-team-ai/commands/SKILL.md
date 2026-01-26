@@ -152,21 +152,40 @@ except Exception as e:
 if "permissions" not in settings:
     settings["permissions"] = {}
 
+# Merge allow permissions
 if "allow" not in settings["permissions"]:
     settings["permissions"]["allow"] = []
 
 template_allow = template.get("permissions", {}).get("allow", [])
 existing_allow = settings["permissions"]["allow"]
 
-# Add template permissions that don't exist yet
-added_permissions = []
+# Add template allow permissions that don't exist yet
+added_allow = []
 for perm in template_allow:
     if perm not in existing_allow:
         existing_allow.append(perm)
-        added_permissions.append(perm)
+        added_allow.append(perm)
 
-if added_permissions:
-    print(f"  ✓ Added {len(added_permissions)} permissions from template")
+# Merge deny permissions
+if "deny" not in settings["permissions"]:
+    settings["permissions"]["deny"] = []
+
+template_deny = template.get("permissions", {}).get("deny", [])
+existing_deny = settings["permissions"]["deny"]
+
+# Add template deny permissions that don't exist yet
+added_deny = []
+for perm in template_deny:
+    if perm not in existing_deny:
+        existing_deny.append(perm)
+        added_deny.append(perm)
+
+# Report changes
+if added_allow or added_deny:
+    if added_allow:
+        print(f"  ✓ Added {len(added_allow)} allow permissions from template")
+    if added_deny:
+        print(f"  ✓ Added {len(added_deny)} deny permissions from template (protects secrets)")
 else:
     print("  ✓ All template permissions already present")
 
