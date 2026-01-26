@@ -75,6 +75,20 @@ Local Claude Code settings including:
 
 Skills like `tmux-wait` and `see-terminal` use complex bash scripts with loops, variables, and multiple commands. Claude Code's permission system uses prefix matching (e.g., `"Bash(tmux:*)"` only matches commands starting with "tmux"). For compound bash scripts to execute without prompts, the general `"Bash"` permission is required.
 
+**Protected Files (Deny List):**
+
+The settings include deny patterns to protect sensitive files:
+- `.env` - Main environment file with secrets
+- `.env.local`, `.env.production`, `.env.development`, `.env.staging`, `.env.test` - Environment-specific secret files
+  - ✅ **Allowed:** `.env.example`, `.env.sample`, `.env.template` (example files safe for git)
+  - ⚠️ **Note:** Less common variants (e.g., `.env.custom`) are not blocked - add specific patterns if needed
+- `*.pem`, `*.key`, `*.p12`, `*.pfx` (private keys and certificates)
+- `secrets/` directories
+- `.aws/`, `.ssh/id_*` (cloud and SSH credentials)
+- `credentials.json`, `auth-config.*` files
+- Files matching `*secret*`, `*password*`, `*token*` patterns
+- `.npmrc`, `.pypirc` (package manager credentials)
+
 **SessionStart Hooks:**
 - Displays Claude.local.md content at session start
 - Notifies about .agent/PLANS.md availability
@@ -235,6 +249,13 @@ For issues or questions:
 - Refer to Claude Code documentation
 
 ## Version History
+
+- **1.0.2** (2026-01-26) - Environment file protection refinement
+  - Changed from broad `**/.env.*` pattern to specific environment file patterns
+  - Blocks common secret files: `.env`, `.env.local`, `.env.production`, `.env.development`, `.env.staging`, `.env.test`
+  - Allows example files: `.env.example`, `.env.sample`, `.env.template`
+  - Documented protected files and trade-offs (less common variants not blocked)
+  - Verified with pattern matching tests
 
 - **1.0.1** (2026-01-21) - Permission system improvements
   - Added `"Bash"` permission to templates for complex skill support
