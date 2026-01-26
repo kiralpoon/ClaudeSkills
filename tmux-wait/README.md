@@ -63,6 +63,20 @@ Wait for shell or Claude prompt to return:
 - Shell prompts: `$`, `#`, `%`
 - Claude prompts: `❯`, `›`
 - Claude Code permission prompts (auto-detected!)
+- **NEW:** Claude Code processing states (Symbioting, plan mode, agents running)
+
+**Claude Code Processing Detection:**
+When a **Claude Code prompt** (`❯` or `›`) is detected, the skill intelligently checks if Claude is still actively processing before returning. This prevents false positives where the prompt appears but Claude is still working.
+
+Detected processing states:
+- `Symbioting...` - Claude is thinking/processing
+- `Running.*agents` - Parallel agent execution
+- `⏸ plan mode on` - Plan mode is active
+- Background task indicators
+
+**Note:** This check ONLY applies to Claude Code prompts. Regular shell prompts (`$`, `#`, `%`) return immediately without checking for thinking indicators.
+
+**Implementation:** The skill scans the entire 50-line capture for thinking indicators, not just the last few lines. This ensures indicators are detected even when buried under lots of output.
 
 **Note:** The prompt mode captures 50 lines and checks for permission prompts BEFORE checking for regular prompts, ensuring reliable detection even when permission dialogs have prompt characters in them.
 

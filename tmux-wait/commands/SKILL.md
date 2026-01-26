@@ -80,20 +80,73 @@ while ((poll_count++ < MAX_POLLS)); do
     exit 0
   fi
 
-  if [[ "$last_line" =~ (\$|#|%|❯|›|>)[[:space:]]*$ ]] || [[ "$last_line" =~ ^[[:space:]]*(❯|›|\$|#|%|>) ]] || [[ "$last_line" =~ ^PS[[:space:]].*\>$ ]]; then
+  # Check for plan approval prompt and other "Would you like" prompts
+  if echo "$output" | grep -qF "Would you like"; then
     elapsed=$((poll_count * 2 / 10))
-    echo "✓ Prompt detected after ${elapsed}s"
+    echo "✓ Approval prompt detected after ${elapsed}s"
     echo ""
     echo "=== Pane output ==="
     tmux capture-pane -t "$PANE" -p -S -50
     exit 0
   fi
 
+  # Check if Claude Code prompt is present (❯ or ›)
+  if [[ "$last_line" =~ (❯|›)[[:space:]]*$ ]] || [[ "$last_line" =~ ^[[:space:]]*(❯|›) ]]; then
+    # Claude prompt found - check if still thinking/processing
+    # Check the entire output (all 50 lines) for thinking indicators
+    if echo "$output" | grep -qE "(✻|✽|✶|✢|·|Symbioting|Churned|Recombobulating|Running.*agents|Esc to interrupt|thought for|⏸ plan mode)"; then
+      # Claude is still processing, keep waiting
+      sleep 0.2
+      continue
+    fi
+
+    # Claude prompt present and no thinking indicators - truly ready
+    elapsed=$((poll_count * 2 / 10))
+    echo "✓ Claude prompt detected after ${elapsed}s"
+    echo ""
+    echo "=== Pane output ==="
+    tmux capture-pane -t "$PANE" -p -S -50
+    exit 0
+  fi
+
+  # Check if shell prompt is present ($, #, %, >, PS)
+  if [[ "$last_line" =~ (\$|#|%|>)[[:space:]]*$ ]] || [[ "$last_line" =~ ^[[:space:]]*([\$#%>]) ]] || [[ "$last_line" =~ ^PS[[:space:]].*\>$ ]]; then
+    # Shell prompt found - return immediately (no thinking check needed)
+    elapsed=$((poll_count * 2 / 10))
+    echo "✓ Shell prompt detected after ${elapsed}s"
+    echo ""
+    echo "=== Pane output ==="
+    tmux capture-pane -t "$PANE" -p -S -50
+    exit 0
+  fi
+
+  # Special case: "? for shortcuts" means prompt might be above the last line
   if [[ "$last_line" =~ (for shortcuts) ]]; then
     last_5_lines=$(echo "$output" | sed '/^[[:space:]]*$/d' | tail -5)
-    if echo "$last_5_lines" | grep -qE '^\s*(❯|›|\$|#|%|>)' || echo "$last_5_lines" | grep -qE '^PS\s.*>'; then
+
+    # Check for Claude prompts first (❯ or ›)
+    if echo "$last_5_lines" | grep -qE '^\s*(❯|›)'; then
+      # Found Claude prompt - check if still thinking/processing
+      # Check the entire output (all 50 lines) for thinking indicators
+      if echo "$output" | grep -qE "(✻|✽|✶|✢|·|Symbioting|Churned|Recombobulating|Running.*agents|Esc to interrupt|thought for|⏸ plan mode)"; then
+        # Claude is still processing, keep waiting
+        sleep 0.2
+        continue
+      fi
+      # Claude prompt present and no thinking indicators - truly ready
       elapsed=$((poll_count * 2 / 10))
-      echo "✓ Prompt detected after ${elapsed}s"
+      echo "✓ Claude prompt detected after ${elapsed}s"
+      echo ""
+      echo "=== Pane output ==="
+      tmux capture-pane -t "$PANE" -p -S -50
+      exit 0
+    fi
+
+    # Check for shell prompts ($, #, %, >, PS)
+    if echo "$last_5_lines" | grep -qE '^\s*(\$|#|%|>)' || echo "$last_5_lines" | grep -qE '^PS\s.*>'; then
+      # Shell prompt found - return immediately (no thinking check needed)
+      elapsed=$((poll_count * 2 / 10))
+      echo "✓ Shell prompt detected after ${elapsed}s"
       echo ""
       echo "=== Pane output ==="
       tmux capture-pane -t "$PANE" -p -S -50
@@ -233,12 +286,14 @@ This is your **default choice** after executing any command:
 - After starting applications (like Claude)
 - Any time you need to know "is the command done?"
 - Waiting for Claude Code permission prompts (all types: "Do you want to proceed?", "Do you want to make this edit", "Do you want to create X?" - auto-detected!)
+- **NEW:** Waiting for Claude Code to finish thinking/processing (Symbioting, plan mode, agent execution)
 
 **Why it's better:**
 - Detects when command finishes, regardless of output
 - No assumptions about specific success messages
 - Works for any command that returns to a prompt
 - Automatically detects ALL Claude Code permission prompts (tool execution, file edits, file creation - any prompt starting with "Do you want")
+- **NEW:** Automatically detects Claude Code active processing states and waits until truly complete
 - Fast and reliable
 
 **Then check what happened:**
@@ -338,3 +393,36 @@ The `prompt` mode detects the following shell prompts:
 | Claude Code | `❯` | `❯` |
 
 **PowerShell Support**: Works with PowerShell running inside tmux panes in WSL. Both standard prompts (`PS C:\>`) and verbose UNC paths (`PS Microsoft.PowerShell.Core\FileSystem::\\wsl.localhost\...>`) are detected.
+
+## Claude Code Processing Detection
+
+**NEW:** The `prompt` mode now intelligently detects when Claude Code is actively processing and waits until truly complete, even when the `❯` prompt is visible.
+
+**IMPORTANT:** This check ONLY applies when a **Claude Code prompt** (`❯` or `›`) is detected. Regular shell prompts (`$`, `#`, `%`, `>`, `PS`) return immediately without checking for thinking indicators.
+
+**Detected Processing States (Claude prompts only):**
+- `Symbioting...` - Claude is actively thinking/processing
+- `Churned for...` - Claude finished a thinking cycle
+- `Running.*agents` / `Explore agents` - Parallel agents executing
+- `ctrl+b ctrl+b...to run in background` - Background tasks available
+- `⏸ plan mode on` - Plan mode is active
+
+**How it works:**
+1. If a Claude prompt (`❯` or `›`) is detected AND any processing indicator is found in the entire captured output (all 50 lines), tmux-wait continues waiting
+2. If a shell prompt (`$`, `#`, `%`) is detected, returns immediately (no thinking check)
+3. Only returns when processing is complete AND prompt is ready
+4. Prevents false positives from detecting the Claude prompt symbol while Claude is still thinking
+
+**Note:** The thinking indicator check scans the entire 50-line capture, not just the last few lines, ensuring it catches indicators even when there's lots of output above them.
+
+**Example:**
+```bash
+# Wait for Claude to finish creating a plan
+/tmux-wait prompt 2 300
+
+# This will now properly wait through:
+# - "Symbioting... (3m 10s)"
+# - "Running 3 Explore agents..."
+# - "Plan mode on"
+# And only return when Claude is truly done
+```
