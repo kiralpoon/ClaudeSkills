@@ -70,7 +70,8 @@ while ((poll_count++ < MAX_POLLS)); do
   output=$(tmux capture-pane -t "$PANE" -p -S -50)
   last_line=$(echo "$output" | sed '/^[[:space:]]*$/d' | tail -1)
 
-  if echo "$output" | grep -qF "Do you want to proceed?"; then
+  # Check for Claude Code permission prompts (all types)
+  if echo "$output" | grep -qF "Do you want"; then
     elapsed=$((poll_count * 2 / 10))
     echo "✓ Permission prompt detected after ${elapsed}s"
     echo ""
@@ -199,7 +200,7 @@ Arguments are provided as: `<mode> <pane> [additional args...]`
 /tmux-wait prompt 0 60
 ```
 
-**Wait for permission prompts (auto-detected by prompt mode):**
+**Wait for permission prompts (all types including tool execution, file edits, and file creation - auto-detected by prompt mode):**
 ```
 /tmux-wait prompt 0 60
 ```
@@ -231,13 +232,13 @@ This is your **default choice** after executing any command:
 - After approving permissions
 - After starting applications (like Claude)
 - Any time you need to know "is the command done?"
-- Waiting for Claude Code permission prompts (auto-detected!)
+- Waiting for Claude Code permission prompts (all types: "Do you want to proceed?", "Do you want to make this edit", "Do you want to create X?" - auto-detected!)
 
 **Why it's better:**
 - Detects when command finishes, regardless of output
 - No assumptions about specific success messages
 - Works for any command that returns to a prompt
-- Automatically detects Claude Code permission prompts
+- Automatically detects ALL Claude Code permission prompts (tool execution, file edits, file creation - any prompt starting with "Do you want")
 - Fast and reliable
 
 **Then check what happened:**
@@ -306,7 +307,7 @@ tmux send-keys -t 0 Enter
 /see-terminal 0 100
 ```
 
-**Note:** The `prompt` mode now automatically detects Claude Code permission prompts ("Do you want to proceed?"), so you don't need to use `output` mode for them. This makes the workflow simpler and faster.
+**Note:** The `prompt` mode now automatically detects ALL Claude Code permission prompts by matching "Do you want" (covers "Do you want to proceed?", "Do you want to make this edit", "Do you want to create X?", etc.), so you don't need to use `output` mode for them. This makes the workflow simpler and faster.
 
 ### Quick Decision Guide
 
