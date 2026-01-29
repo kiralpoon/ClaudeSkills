@@ -5,8 +5,11 @@ A Claude Code skill for setting up Chrome DevTools MCP with Linux Chrome and WSL
 ## What It Does
 
 1. **Enables mirrored networking** - Configures WSL2 so `127.0.0.1` reaches Windows services
-2. **Installs Linux Chrome** - Installs Chrome in WSL if not present
-3. **Configures MCP** - Sets up chrome-devtools MCP to auto-launch Linux Chrome
+2. **Installs Linux Chrome** - Installs Chrome in WSL if not present (uses idle tmux pane detection for safe installation)
+3. **Installs Asian fonts** - Installs Noto CJK fonts for Japanese and Chinese character support
+4. **Configures language settings** - Sets Chrome to accept English, Japanese, and Chinese
+5. **Configures MCP** - Sets up chrome-devtools MCP to auto-launch Linux Chrome
+6. **Tests browser and fonts** - Verifies Chrome starts correctly and Asian fonts render properly
 
 ## Prerequisites
 
@@ -35,8 +38,10 @@ cp commands/SKILL.md ~/.claude/skills/chrome-mcp/
 
 The skill will:
 1. Enable mirrored networking in `.wslconfig` (if needed)
-2. Install Linux Chrome (if needed)
-3. Configure the MCP with `--executablePath=/usr/bin/google-chrome`
+2. Install Linux Chrome and Asian fonts (if needed), using idle tmux pane detection
+3. Configure Chrome language preferences (English, Japanese, Chinese)
+4. Configure the MCP with `--executablePath=/usr/bin/google-chrome`
+5. Test browser launch and verify Asian font rendering
 
 After setup, restart Claude Code. The MCP will auto-launch Chrome when you use browser automation commands.
 

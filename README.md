@@ -90,14 +90,15 @@ Quickly initialize new projects with team AI collaboration configuration. Create
 
 **Skill**: `chrome-mcp`
 
-Setup and launch Chrome DevTools MCP for browser automation in WSL environments. One command to install the MCP, find Chrome, and start debugging.
+Setup Chrome DevTools MCP with Linux Chrome, Asian fonts, and WSL2 mirrored networking. One command to install Chrome, configure languages, set up the MCP, and verify browser functionality.
 
 **Key Features**:
-- One-command MCP installation
-- Auto-detect Chrome installation on Windows
-- Split pane setup (Chrome on top, shell on bottom)
-- Automatic debugging port verification
-- Custom port support
+- One-command setup for Chrome DevTools MCP
+- Installs Linux Chrome and Asian fonts (Noto CJK) in WSL
+- Configures language preferences (English, Japanese, Chinese)
+- Safe idle tmux pane detection for installations (no blind pane killing)
+- Browser testing with Asian font rendering verification
+- WSL2 mirrored networking configuration
 
 **Use Cases**:
 - Browser automation and testing
