@@ -63,29 +63,56 @@ fi
 
 **If Chrome is NOT installed (`CHROME_ALREADY_INSTALLED=false`):**
 
-Create a new tmux pane for Chrome installation:
+Find an idle tmux pane (or create one if all are busy), then send installation commands:
 
 ```bash
-# Create new pane for installation (kill existing pane 1 if it exists)
-tmux kill-pane -t 1 2>/dev/null || true
-tmux split-window -h
-echo "✓ Created pane 1 for Chrome installation"
+# Find an idle pane by checking which panes are running just a shell
+IDLE_PANE=""
+for pane_id in $(tmux list-panes -F '#{pane_index}' | grep -v '^0$'); do
+    pane_cmd=$(tmux display-message -p -t "$pane_id" '#{pane_current_command}')
+    if [[ "$pane_cmd" == "bash" || "$pane_cmd" == "zsh" || "$pane_cmd" == "sh" || "$pane_cmd" == "fish" ]]; then
+        IDLE_PANE="$pane_id"
+        break
+    fi
+done
+
+if [[ -z "$IDLE_PANE" ]]; then
+    tmux split-window -h
+    IDLE_PANE=$(tmux list-panes -F '#{pane_index}' | sort -n | tail -1)
+    echo "✓ Created pane $IDLE_PANE for Chrome installation"
+else
+    echo "✓ Using idle pane $IDLE_PANE for Chrome installation"
+fi
+
+# Send Chrome installation commands to the target pane
+tmux send-keys -t "$IDLE_PANE" "wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -O /tmp/chrome.deb && sudo apt install -y /tmp/chrome.deb && rm /tmp/chrome.deb && google-chrome --version" Enter
+
+echo "Installation started in pane $IDLE_PANE."
+echo "If prompted, please enter your sudo password in pane $IDLE_PANE."
 ```
 
-Send installation commands to the new pane:
+Wait for installation to complete — first re-detect the install pane, then wait:
 
 ```bash
-# Send Chrome installation commands to pane 1
-tmux send-keys -t 1 "wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -O /tmp/chrome.deb && sudo apt install -y /tmp/chrome.deb && rm /tmp/chrome.deb && google-chrome --version" Enter
-
-echo "Installation started in pane 1."
-echo "If prompted, please enter your sudo password in pane 1."
+# Re-detect: find the non-0 pane that is busy (running something other than a shell)
+INSTALL_PANE=""
+for pane_id in $(tmux list-panes -F '#{pane_index}' | grep -v '^0$'); do
+    pane_cmd=$(tmux display-message -p -t "$pane_id" '#{pane_current_command}')
+    if [[ "$pane_cmd" != "bash" && "$pane_cmd" != "zsh" && "$pane_cmd" != "sh" && "$pane_cmd" != "fish" ]]; then
+        INSTALL_PANE="$pane_id"
+        break
+    fi
+done
+# Fallback: highest non-0 pane (install may have already finished)
+if [[ -z "$INSTALL_PANE" ]]; then
+    INSTALL_PANE=$(tmux list-panes -F '#{pane_index}' | grep -v '^0$' | sort -n | tail -1)
+fi
+echo "INSTALL_PANE=$INSTALL_PANE"
 ```
 
-Wait for installation to complete using the tmux-wait skill:
-
 ```
-Use Skill tool with skill="tmux-wait" and args="prompt 1 120"
+Use Skill tool with skill="tmux-wait" and args="prompt <INSTALL_PANE> 120"
+(Replace <INSTALL_PANE> with the pane number printed above)
 ```
 
 Verify Chrome was installed successfully:
@@ -100,21 +127,20 @@ fi
 
 **If installation failed:**
 
-Capture pane 1 output to check for errors:
+Capture pane output to check for errors — re-detect the install pane:
+
+```bash
+# Re-detect: find the non-0 pane (install finished, so fallback to highest non-0 pane)
+INSTALL_PANE=$(tmux list-panes -F '#{pane_index}' | grep -v '^0$' | sort -n | tail -1)
+echo "INSTALL_PANE=$INSTALL_PANE"
+```
 
 ```
-Use Skill tool with skill="see-terminal" and args="1 100"
+Use Skill tool with skill="see-terminal" and args="<INSTALL_PANE> 100"
+(Replace <INSTALL_PANE> with the pane number printed above)
 ```
 
 Then report the error to the user and exit.
-
-Close the installation pane:
-
-```bash
-# Close pane 1 now that installation is complete
-tmux kill-pane -t 1 2>/dev/null || true
-echo "✓ Installation pane closed"
-```
 
 ### Install Asian Fonts
 
@@ -136,29 +162,56 @@ fi
 
 **If fonts are NOT installed (`FONTS_INSTALLED=false`):**
 
-Create a new tmux pane for font installation:
+Find an idle tmux pane (or create one if all are busy), then send installation commands:
 
 ```bash
-# Create new pane for installation (kill existing pane 1 if it exists)
-tmux kill-pane -t 1 2>/dev/null || true
-tmux split-window -h
-echo "✓ Created pane 1 for font installation"
+# Find an idle pane by checking which panes are running just a shell
+IDLE_PANE=""
+for pane_id in $(tmux list-panes -F '#{pane_index}' | grep -v '^0$'); do
+    pane_cmd=$(tmux display-message -p -t "$pane_id" '#{pane_current_command}')
+    if [[ "$pane_cmd" == "bash" || "$pane_cmd" == "zsh" || "$pane_cmd" == "sh" || "$pane_cmd" == "fish" ]]; then
+        IDLE_PANE="$pane_id"
+        break
+    fi
+done
+
+if [[ -z "$IDLE_PANE" ]]; then
+    tmux split-window -h
+    IDLE_PANE=$(tmux list-panes -F '#{pane_index}' | sort -n | tail -1)
+    echo "✓ Created pane $IDLE_PANE for font installation"
+else
+    echo "✓ Using idle pane $IDLE_PANE for font installation"
+fi
+
+# Send font installation command to the target pane
+tmux send-keys -t "$IDLE_PANE" "sudo apt install -y fonts-noto-cjk fonts-noto-cjk-extra && fc-cache -fv && echo 'Japanese fonts: \$(fc-list :lang=ja | wc -l)' && echo 'Chinese fonts: \$(fc-list :lang=zh | wc -l)'" Enter
+
+echo "Installation started in pane $IDLE_PANE."
+echo "If prompted, please enter your sudo password in pane $IDLE_PANE."
 ```
 
-Send installation commands to the new pane:
+Wait for installation to complete — first re-detect the install pane, then wait:
 
 ```bash
-# Send font installation command to pane 1
-tmux send-keys -t 1 "sudo apt install -y fonts-noto-cjk fonts-noto-cjk-extra && fc-cache -fv && echo 'Japanese fonts: \$(fc-list :lang=ja | wc -l)' && echo 'Chinese fonts: \$(fc-list :lang=zh | wc -l)'" Enter
-
-echo "Installation started in pane 1."
-echo "If prompted, please enter your sudo password in pane 1."
+# Re-detect: find the non-0 pane that is busy (running something other than a shell)
+INSTALL_PANE=""
+for pane_id in $(tmux list-panes -F '#{pane_index}' | grep -v '^0$'); do
+    pane_cmd=$(tmux display-message -p -t "$pane_id" '#{pane_current_command}')
+    if [[ "$pane_cmd" != "bash" && "$pane_cmd" != "zsh" && "$pane_cmd" != "sh" && "$pane_cmd" != "fish" ]]; then
+        INSTALL_PANE="$pane_id"
+        break
+    fi
+done
+# Fallback: highest non-0 pane (install may have already finished)
+if [[ -z "$INSTALL_PANE" ]]; then
+    INSTALL_PANE=$(tmux list-panes -F '#{pane_index}' | grep -v '^0$' | sort -n | tail -1)
+fi
+echo "INSTALL_PANE=$INSTALL_PANE"
 ```
 
-Wait for installation to complete using the tmux-wait skill:
-
 ```
-Use Skill tool with skill="tmux-wait" and args="prompt 1 120"
+Use Skill tool with skill="tmux-wait" and args="prompt <INSTALL_PANE> 120"
+(Replace <INSTALL_PANE> with the pane number printed above)
 ```
 
 Verify fonts were installed successfully:
@@ -178,21 +231,20 @@ fi
 
 **If installation failed:**
 
-Capture pane 1 output to check for errors:
+Capture pane output to check for errors — re-detect the install pane:
+
+```bash
+# Re-detect: find the non-0 pane (install finished, so fallback to highest non-0 pane)
+INSTALL_PANE=$(tmux list-panes -F '#{pane_index}' | grep -v '^0$' | sort -n | tail -1)
+echo "INSTALL_PANE=$INSTALL_PANE"
+```
 
 ```
-Use Skill tool with skill="see-terminal" and args="1 100"
+Use Skill tool with skill="see-terminal" and args="<INSTALL_PANE> 100"
+(Replace <INSTALL_PANE> with the pane number printed above)
 ```
 
 Then report the error to the user and exit.
-
-Close the installation pane:
-
-```bash
-# Close pane 1 now that installation is complete
-tmux kill-pane -t 1 2>/dev/null || true
-echo "✓ Installation pane closed"
-```
 
 ---
 
