@@ -246,6 +246,103 @@ Use Skill tool with skill="see-terminal" and args="<INSTALL_PANE> 100"
 
 Then report the error to the user and exit.
 
+### Install Japanese Input Method (IBus + Mozc)
+
+Check and install IBus + Mozc for Japanese text input support:
+
+```bash
+echo "Checking Japanese input method (IBus + Mozc)..."
+if dpkg -s ibus >/dev/null 2>&1 && dpkg -s ibus-mozc >/dev/null 2>&1; then
+    echo "✓ IBus + Mozc already installed"
+    echo "IBUS_INSTALLED=true"
+else
+    echo "IBus + Mozc need to be installed (requires sudo password)"
+    echo "IBUS_INSTALLED=false"
+fi
+```
+
+**If IBus + Mozc are NOT installed (`IBUS_INSTALLED=false`):**
+
+Find an idle tmux pane (or create one if all are busy), then send installation commands:
+
+```bash
+# Find an idle pane by checking which panes are running just a shell
+IDLE_PANE=""
+for pane_id in $(tmux list-panes -F '#{pane_index}' | grep -v '^0$'); do
+    pane_cmd=$(tmux display-message -p -t "$pane_id" '#{pane_current_command}')
+    if [[ "$pane_cmd" == "bash" || "$pane_cmd" == "zsh" || "$pane_cmd" == "sh" || "$pane_cmd" == "fish" ]]; then
+        IDLE_PANE="$pane_id"
+        break
+    fi
+done
+
+if [[ -z "$IDLE_PANE" ]]; then
+    tmux split-window -h
+    IDLE_PANE=$(tmux list-panes -F '#{pane_index}' | sort -n | tail -1)
+    echo "✓ Created pane $IDLE_PANE for IBus installation"
+else
+    echo "✓ Using idle pane $IDLE_PANE for IBus installation"
+fi
+
+# Send IBus + Mozc installation command to the target pane
+tmux send-keys -t "$IDLE_PANE" "sudo apt install -y ibus ibus-mozc mozc-utils-gui && ibus list-engine | grep mozc && echo 'IBus + Mozc installation complete'" Enter
+
+echo "Installation started in pane $IDLE_PANE."
+echo "If prompted, please enter your sudo password in pane $IDLE_PANE."
+```
+
+Wait for installation to complete — first re-detect the install pane, then wait:
+
+```bash
+# Re-detect: find the non-0 pane that is busy (running something other than a shell)
+INSTALL_PANE=""
+for pane_id in $(tmux list-panes -F '#{pane_index}' | grep -v '^0$'); do
+    pane_cmd=$(tmux display-message -p -t "$pane_id" '#{pane_current_command}')
+    if [[ "$pane_cmd" != "bash" && "$pane_cmd" != "zsh" && "$pane_cmd" != "sh" && "$pane_cmd" != "fish" ]]; then
+        INSTALL_PANE="$pane_id"
+        break
+    fi
+done
+# Fallback: highest non-0 pane (install may have already finished)
+if [[ -z "$INSTALL_PANE" ]]; then
+    INSTALL_PANE=$(tmux list-panes -F '#{pane_index}' | grep -v '^0$' | sort -n | tail -1)
+fi
+echo "INSTALL_PANE=$INSTALL_PANE"
+```
+
+```
+Use Skill tool with skill="tmux-wait" and args="prompt <INSTALL_PANE> 120"
+(Replace <INSTALL_PANE> with the pane number printed above)
+```
+
+Verify IBus + Mozc were installed successfully:
+
+```bash
+if dpkg -s ibus >/dev/null 2>&1 && dpkg -s ibus-mozc >/dev/null 2>&1; then
+    echo "✓ IBus + Mozc installed successfully"
+    ibus list-engine 2>/dev/null | grep mozc || echo "  ! Mozc engine not yet registered (may need ibus-daemon restart)"
+else
+    echo "✗ IBus + Mozc installation may have failed"
+fi
+```
+
+**If installation failed:**
+
+Capture pane output to check for errors — re-detect the install pane:
+
+```bash
+# Re-detect: find the non-0 pane (install finished, so fallback to highest non-0 pane)
+INSTALL_PANE=$(tmux list-panes -F '#{pane_index}' | grep -v '^0$' | sort -n | tail -1)
+echo "INSTALL_PANE=$INSTALL_PANE"
+```
+
+```
+Use Skill tool with skill="see-terminal" and args="<INSTALL_PANE> 100"
+(Replace <INSTALL_PANE> with the pane number printed above)
+```
+
+Then report the error to the user and exit.
+
 ---
 
 ## Step 3: Configure Chrome Language Settings
@@ -328,7 +425,43 @@ EOF
 fi
 ```
 
-### 3.2: Verify Language Configuration
+### 3.2: Configure Input Method Environment
+
+Add IBus environment variables to `~/.profile` so Chrome can use the input method:
+
+```bash
+echo "Configuring IBus environment variables..."
+PROFILE="$HOME/.profile"
+
+VARS_PRESENT=true
+for var in "GTK_IM_MODULE=ibus" "QT_IM_MODULE=ibus" "XMODIFIERS=@im=ibus"; do
+    if ! grep -qF "$var" "$PROFILE" 2>/dev/null; then
+        VARS_PRESENT=false
+        break
+    fi
+done
+
+if [[ "$VARS_PRESENT" == "false" ]]; then
+    # Remove any partial IBus lines before re-adding cleanly
+    sed -i '/^# IBus Input Method$/d' "$PROFILE" 2>/dev/null
+    sed -i '/^export GTK_IM_MODULE=ibus$/d' "$PROFILE" 2>/dev/null
+    sed -i '/^export QT_IM_MODULE=ibus$/d' "$PROFILE" 2>/dev/null
+    sed -i '/^export XMODIFIERS=@im=ibus$/d' "$PROFILE" 2>/dev/null
+    cat >> "$PROFILE" << 'IBUS_EOF'
+
+# IBus Input Method
+export GTK_IM_MODULE=ibus
+export QT_IM_MODULE=ibus
+export XMODIFIERS=@im=ibus
+IBUS_EOF
+    echo "✓ IBus environment variables added to ~/.profile"
+else
+    echo "✓ IBus environment variables already configured in ~/.profile"
+fi
+echo "Note: IBus environment variables take effect on next login or shell session."
+```
+
+### 3.3: Verify Language Configuration
 
 ```bash
 CHROME_PREFS="$HOME/.config/google-chrome/Default/Preferences"
@@ -399,6 +532,7 @@ Chrome DevTools MCP Setup Complete
 
 ✓ Chrome installed: [version]
 ✓ Asian fonts installed: Japanese, Chinese
+✓ IBus + Mozc input method installed
 ✓ Languages configured: English, Japanese, Chinese
 ✓ MCP configured with Linux Chrome
 
@@ -419,7 +553,25 @@ Proceed to Step 5 (Test Browser).
 
 This step verifies that Chrome starts correctly, language settings are working, and Asian fonts render properly without weird font issues.
 
-### 5.1: Check for Existing Browser Instance and Restart if Needed
+### 5.1: Start IBus Daemon
+
+Ensure the IBus input method daemon is running before launching Chrome:
+
+```bash
+if pgrep -x ibus-daemon >/dev/null 2>&1; then
+    echo "✓ IBus daemon already running"
+else
+    echo "Starting IBus daemon..."
+    ibus-daemon -drx 2>/dev/null
+    if pgrep -x ibus-daemon >/dev/null 2>&1; then
+        echo "✓ IBus daemon started"
+    else
+        echo "! IBus daemon failed to start (Japanese input may not work)"
+    fi
+fi
+```
+
+### 5.2: Check for Existing Browser Instance and Restart if Needed
 
 First check if Chrome processes are already running:
 
@@ -445,7 +597,7 @@ else
 fi
 ```
 
-### 5.2: Start Browser and Test Japanese Fonts
+### 5.3: Start Browser and Test Japanese Fonts
 
 Use the MCP tools to start a new browser page and navigate to Google Japan:
 
@@ -472,7 +624,7 @@ Use mcp__chrome-devtools__take_screenshot
 - Look for any boxes (□□□) or weird font issues
 - Verify text is crisp and readable
 
-### 5.3: Test Chinese Fonts
+### 5.4: Test Chinese Fonts
 
 Navigate to a Chinese website:
 
@@ -491,7 +643,48 @@ Use mcp__chrome-devtools__take_screenshot
 - Look for any boxes (□□□) or weird font issues
 - Verify text is crisp and readable
 
-### 5.4: Report Font Verification Results
+### 5.5: Verify Japanese Input Method Installation
+
+Verify IBus + Mozc are installed and the daemon is running:
+
+```bash
+echo "=== Japanese Input Method Status ==="
+
+# Check IBus installation
+if dpkg -s ibus >/dev/null 2>&1; then
+    echo "✓ IBus installed: $(ibus version 2>/dev/null || echo 'version unknown')"
+else
+    echo "✗ IBus not installed"
+fi
+
+# Check Mozc engine
+if dpkg -s ibus-mozc >/dev/null 2>&1; then
+    echo "✓ ibus-mozc installed"
+    ibus list-engine 2>/dev/null | grep mozc && echo "  Mozc engine registered" || echo "  ! Mozc engine not yet registered (may need ibus restart)"
+else
+    echo "✗ ibus-mozc not installed"
+fi
+
+# Check daemon
+if pgrep -x ibus-daemon >/dev/null 2>&1; then
+    echo "✓ IBus daemon running"
+else
+    echo "! IBus daemon not running"
+fi
+
+# Check environment variables in ~/.profile
+if grep -q "GTK_IM_MODULE=ibus" "$HOME/.profile" 2>/dev/null; then
+    echo "✓ IBus environment variables configured in ~/.profile"
+else
+    echo "! IBus environment variables not found in ~/.profile"
+fi
+
+echo ""
+echo "Note: To use Japanese input interactively in Chrome, press the IBus"
+echo "keyboard shortcut (usually Super+Space or Ctrl+Space) to toggle Mozc."
+```
+
+### 5.6: Report Font Verification Results
 
 Report the complete verification status:
 
@@ -516,6 +709,7 @@ Summary:
 The Chrome DevTools MCP setup is fully functional with complete Asian language support:
   - Linux Chrome <insert version from google-chrome --version>
   - <insert count> Japanese fonts and <insert count> Chinese fonts installed
+  - IBus + Mozc input method installed for Japanese text input
   - Language preferences configured for English, Japanese, and Chinese
   - WSL2 mirrored networking enabled
   - MCP server connected and operational
