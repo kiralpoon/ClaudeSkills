@@ -76,7 +76,7 @@ Detected processing states:
 
 **Note:** This check ONLY applies to Claude Code prompts. Regular shell prompts (`$`, `#`, `%`) return immediately without checking for thinking indicators.
 
-**Implementation:** The skill scans the entire 50-line capture for thinking indicators, not just the last few lines. This ensures indicators are detected even when buried under lots of output.
+**Implementation:** The skill checks only the last 5 non-empty lines near the prompt for thinking indicators, avoiding false positives from stale indicators (e.g. `✻ Cooked for...`) left over from previous operations.
 
 **Note:** The prompt mode captures 50 lines and checks for permission prompts BEFORE checking for regular prompts, ensuring reliable detection even when permission dialogs have prompt characters in them.
 

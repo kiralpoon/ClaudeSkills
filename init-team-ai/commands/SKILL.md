@@ -2,7 +2,7 @@
 name: init-team-ai
 description: Initialize a new project with team AI configuration files
 argument-hint: [project-path (optional, defaults to current directory)]
-allowed-tools: Read(*), Bash(mkdir:*), Bash(cp:*), Bash(cat:*), Bash(echo:*), Bash(grep:*), Bash(command:*), Bash(python3:*)
+allowed-tools: Read(*), Bash(mkdir:*), Bash(cp:*), Bash(cat:*), Bash(echo:*), Bash(grep:*), Bash(git:*), Bash(command:*), Bash(python3:*)
 ---
 
 # Initialize Team AI Project
@@ -63,6 +63,27 @@ else
     exit 1
   fi
   echo "  ✓ Created Agents.md"
+fi
+
+# ClaudeSkills repo only: append Skill Development Research section
+if git -C "$TARGET_DIR" remote -v 2>/dev/null | grep -q "ClaudeSkills"; then
+  if ! grep -q "Skill Development Research" "$TARGET_DIR/Agents.md" 2>/dev/null; then
+    cat >> "$TARGET_DIR/Agents.md" << 'RESEARCH_SECTION'
+
+## Skill Development Research
+
+When creating a new skill or updating an existing skill in this repository:
+
+1. Browse https://github.com/affaan-m/everything-claude-code for similar skills or related tools
+2. If a similar skill exists, present findings to the user and discuss:
+   - What the external repo does differently
+   - Strategies: adopt their approach, adapt it, or diverge
+3. Incorporate learnings into the ExecPlan before implementation
+RESEARCH_SECTION
+    echo "  ✓ Added Skill Development Research section to Agents.md"
+  else
+    echo "  ℹ Skill Development Research section already exists in Agents.md"
+  fi
 fi
 ```
 

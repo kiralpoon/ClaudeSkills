@@ -93,8 +93,9 @@ while ((poll_count++ < MAX_POLLS)); do
   # Check if Claude Code prompt is present (❯ or ›)
   if [[ "$last_line" =~ (❯|›)[[:space:]]*$ ]] || [[ "$last_line" =~ ^[[:space:]]*(❯|›) ]]; then
     # Claude prompt found - check if still thinking/processing
-    # Check the entire output (all 50 lines) for thinking indicators
-    if echo "$output" | grep -qE "(✻|✽|✶|✢|·|Symbioting|Churned|Recombobulating|Running.*agents|Esc to interrupt|thought for|⏸ plan mode)"; then
+    # Only check last 5 lines to avoid stale indicators from previous operations
+    last_5_check=$(echo "$output" | sed '/^[[:space:]]*$/d' | tail -5)
+    if echo "$last_5_check" | grep -qE "(✻|✽|✶|✢|Symbioting|Churned|Recombobulating|Running.*agents|Esc to interrupt|thought for|⏸ plan mode)"; then
       # Claude is still processing, keep waiting
       sleep 0.2
       continue
@@ -127,8 +128,8 @@ while ((poll_count++ < MAX_POLLS)); do
     # Check for Claude prompts first (❯ or ›)
     if echo "$last_5_lines" | grep -qE '^\s*(❯|›)'; then
       # Found Claude prompt - check if still thinking/processing
-      # Check the entire output (all 50 lines) for thinking indicators
-      if echo "$output" | grep -qE "(✻|✽|✶|✢|·|Symbioting|Churned|Recombobulating|Running.*agents|Esc to interrupt|thought for|⏸ plan mode)"; then
+      # Only check last 5 lines to avoid stale indicators from previous operations
+      if echo "$last_5_lines" | grep -qE "(✻|✽|✶|✢|Symbioting|Churned|Recombobulating|Running.*agents|Esc to interrupt|thought for|⏸ plan mode)"; then
         # Claude is still processing, keep waiting
         sleep 0.2
         continue
@@ -408,12 +409,12 @@ The `prompt` mode detects the following shell prompts:
 - `⏸ plan mode on` - Plan mode is active
 
 **How it works:**
-1. If a Claude prompt (`❯` or `›`) is detected AND any processing indicator is found in the entire captured output (all 50 lines), tmux-wait continues waiting
+1. If a Claude prompt (`❯` or `›`) is detected AND any processing indicator is found in the last 5 non-empty lines, tmux-wait continues waiting
 2. If a shell prompt (`$`, `#`, `%`) is detected, returns immediately (no thinking check)
 3. Only returns when processing is complete AND prompt is ready
 4. Prevents false positives from detecting the Claude prompt symbol while Claude is still thinking
 
-**Note:** The thinking indicator check scans the entire 50-line capture, not just the last few lines, ensuring it catches indicators even when there's lots of output above them.
+**Note:** The thinking indicator check only scans the last 5 non-empty lines near the prompt, avoiding false positives from stale indicators (e.g. `✻ Cooked for...`) left over from previous operations.
 
 **Example:**
 ```bash
