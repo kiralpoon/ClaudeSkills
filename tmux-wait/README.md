@@ -4,15 +4,20 @@ Event-driven command waiting for tmux panes using `tmux wait-for` instead of pol
 
 ## Why This Skill?
 
-**The Problem:**
-- Smart polling loops require permission approval every time
-- Fixed `sleep` delays waste time and are unreliable
-- Complex bash loops are hard to maintain and error-prone
+Claude Code's built-in hook system (`PreToolUse`, `PostToolUse`, `SessionStart`, etc.) handles events *within* a session — reacting to tool calls, file edits, and lifecycle events. But there's no mechanism for **cross-session orchestration**: launching Claude in a tmux pane, sending it commands, waiting for it to become idle, and approving permissions from another session.
 
-**The Solution:**
-- Uses `tmux wait-for` for event-driven waiting (zero CPU, instant completion detection)
-- Pre-approved commands (no permission prompts when using `/init-team-ai`)
-- Simple skill invocation instead of complex bash scripts
+tmux-wait fills that gap by detecting Claude's UI states from outside the process via terminal capture. It solves problems that hooks fundamentally cannot:
+
+- **Detecting when Claude is ready** — idle prompt, thinking, or showing a permission dialog
+- **Coordinating between sessions** — one Claude instance testing skills in another
+- **Waiting for shell commands** — in panes that aren't running Claude at all
+
+It also replaces fragile alternatives:
+- Polling loops that require permission approval every time
+- Fixed `sleep` delays that waste time and are unreliable
+- Complex bash scripts that are hard to maintain
+
+See [EDGE_CASES.md](EDGE_CASES.md) for known detection issues and workarounds.
 
 ## Installation
 
