@@ -1,5 +1,5 @@
 # ExecPlans
-When writing complex features or significant refactors, use an ExecPlan (as described in .agent/PLANS.md) from design to implementation.
+When writing complex features or significant refactors, use an ExecPlan (as described in .agent/PLANS.md) from design to implementation. Save each ExecPlan as a file in the `.agent/` directory using the naming convention `ExecPlan-<descriptive-name>.md`. Write the file at the start of the work and update it in place throughout -- the user may have it open in their editor and relies on it as a live view of progress.
 
 ## Tmux Workflow Rules
 

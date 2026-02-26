@@ -12,6 +12,14 @@ When discussing an executable specification (ExecPlan), record decisions in a lo
 
 When researching a design with challenging requirements or significant unknowns, use milestones to implement proof of concepts, "toy implementations", etc., that allow validating whether the user's proposal is feasible. Read the source code of libraries by finding or acquiring them, research deeply, and include prototypes to guide a fuller implementation.
 
+## File Location and Naming
+
+Every ExecPlan must be saved as a standalone Markdown file in the `.agent/` directory at the project root. Name the file using the convention `ExecPlan-<descriptive-name>.md`, where `<descriptive-name>` is a short, kebab-case summary of the plan's purpose (for example, `ExecPlan-add-auth-middleware.md` or `ExecPlan-migrate-database-schema.md`). Create the `.agent/` directory if it does not already exist.
+
+The ExecPlan file is a live document. Write it to disk at the start of the work and update it in place as you make progress, record decisions, and capture discoveries. The user may have this file open in their editor or IDE and will see your updates in real time. This means you must write changes to the file frequently -- at minimum, update the `Progress` section after completing each step or milestone and whenever you make a decision worth recording. Do not defer updates to the end; the file should always reflect the current state of the work.
+
+Because `.agent/` is gitignored, ExecPlan files are local working documents. If an ExecPlan should be preserved beyond the current session, check it in to a different location or remove `.agent/` from `.gitignore` for that specific file.
+
 ## Requirements
 
 NON-NEGOTIABLE REQUIREMENTS:
@@ -30,7 +38,7 @@ The agent executing your plan can list files, read files, search, run the projec
 
 Format and envelope are simple and strict. Each ExecPlan must be one single fenced code block labeled as `md` that begins and ends with triple backticks. Do not nest additional triple-backtick code fences inside; when you need to show commands, transcripts, diffs, or code, present them as indented blocks within that single fence. Use indentation for clarity rather than code fences inside an ExecPlan to avoid prematurely closing the ExecPlan's code fence. Use two newlines after every heading, use # and ## and so on, and correct syntax for ordered and unordered lists.
 
-When writing an ExecPlan to a Markdown (.md) file where the content of the file *is only* the single ExecPlan, you should omit the triple backticks.
+When writing an ExecPlan to its `.agent/ExecPlan-<name>.md` file (where the content of the file *is only* the single ExecPlan), omit the triple backticks.
 
 Write in plain prose. Prefer sentences over lists. Avoid checklists, tables, and long enumerations unless brevity would obscure meaning. Checklists are permitted only in the `Progress` section, where they are mandatory. Narrative sections must remain prose-first.
 
@@ -77,7 +85,7 @@ Prefer additive code changes followed by subtractions that keep tests passing. P
 
 This ExecPlan is a living document. The sections `Progress`, `Surprises & Discoveries`, `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work proceeds.
 
-If PLANS.md file is checked into the repo, reference the path to that file here from the repository root and note that this document must be maintained in accordance with PLANS.md.
+This file lives in `.agent/` and is maintained as a living document. If PLANS.md is checked into the repo, reference its path here (e.g., `.agent/PLANS.md`) and note that this document must be maintained in accordance with PLANS.md. Update this file in place as work proceeds so that anyone watching it in their editor sees the latest state.
 
 ## Purpose / Big Picture
 
