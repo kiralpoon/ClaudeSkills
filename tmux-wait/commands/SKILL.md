@@ -90,6 +90,16 @@ while ((poll_count++ < MAX_POLLS)); do
     exit 0
   fi
 
+  # Check for Claude Code confirmation dialogs (folder trust, etc.)
+  if echo "$output" | grep -qF "Enter to confirm"; then
+    elapsed=$((poll_count * 2 / 10))
+    echo "✓ Confirmation prompt detected after ${elapsed}s"
+    echo ""
+    echo "=== Pane output ==="
+    tmux capture-pane -t "$PANE" -p -S -50
+    exit 0
+  fi
+
   # Check if Claude Code prompt is present (❯ or ›)
   if [[ "$last_line" =~ (❯|›)[[:space:]]*$ ]] || [[ "$last_line" =~ ^[[:space:]]*(❯|›) ]]; then
     # Claude prompt found - check if still thinking/processing
@@ -287,6 +297,7 @@ This is your **default choice** after executing any command:
 - After starting applications (like Claude)
 - Any time you need to know "is the command done?"
 - Waiting for Claude Code permission prompts (all types: "Do you want to proceed?", "Do you want to make this edit", "Do you want to create X?" - auto-detected!)
+- Waiting for Claude Code confirmation dialogs (folder trust prompt with "Enter to confirm")
 - **NEW:** Waiting for Claude Code to finish thinking/processing (Symbioting, plan mode, agent execution)
 
 **Why it's better:**
