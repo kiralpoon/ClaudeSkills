@@ -223,20 +223,22 @@ Budgets are independent — UX rounds do not consume code review budget and vice
 Deliberation does not consume a revision round — it is part of the same round.
 On the 6th rejection within a stage, Team Lead escalates to the user.
 
-## Environment Variables
+## CLI Authentication
 
-The following environment variables must be set in the shell before running /team-ai.
-They are inherited by tmux panes created by start-team.sh (new-session passes the
-current environment automatically). If they are not set, agents will fail silently.
+All agent CLIs use subscription-based auth (no API keys). Each developer
+logs in once per machine; credentials are stored in per-user config files
+and persist across all tmux panes and sessions.
 
-  ANTHROPIC_API_KEY — required by `claude -p` (Builder). Set in your shell profile or .env.
-  OPENAI_API_KEY    — required by `codex exec` (Code Reviewer). Set in your shell profile or .env.
-  GEMINI_API_KEY    — required by Gemini CLI unless authenticated via `gemini auth login`.
+  Claude (Builder):       Already authenticated if you are running Claude Code.
+                          Auth stored in ~/.claude/
+  Gemini (UI/UX Review):  Run `gemini auth login` (browser OAuth).
+                          Auth stored in ~/.config/gemini/
+  Codex (Code Review):    Run `codex auth login`.
+                          Auth stored in ~/.codex/
 
-To verify they are set in the pane environment after the session starts:
-  tmux send-keys -t %BUILDER  "echo $ANTHROPIC_API_KEY" Enter
-  tmux send-keys -t %UX       "echo $GEMINI_API_KEY"  Enter
-  tmux send-keys -t %REVIEWER "echo $OPENAI_API_KEY"  Enter
+The Team Lead runs a preflight check before starting the pipeline:
+it verifies each CLI is installed and authenticated. If any CLI is not
+ready, it tells the user which login command to run before proceeding.
 
 ## Gitignore Note
 

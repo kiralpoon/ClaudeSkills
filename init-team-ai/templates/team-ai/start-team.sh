@@ -26,10 +26,10 @@
 # Pane IDs are saved to .agent/pipeline/SESSION.json for stable targeting.
 # If the team-ai layout already exists, this script exits without changes.
 #
-# IMPORTANT: OPENAI_API_KEY, GEMINI_API_KEY, and ANTHROPIC_API_KEY must be
-# set in the calling shell's environment. The script propagates them via
-# -e flags so all panes inherit them regardless of how the tmux server
-# was originally started.
+# PREREQUISITES: Each CLI tool must be installed and logged in before use.
+# Auth is stored in per-user config files (~/.claude/, ~/.config/gemini/,
+# ~/.codex/) so it persists across all tmux panes and sessions.
+# The Team Lead verifies auth status at pipeline start (preflight check).
 
 set -e
 
@@ -52,30 +52,6 @@ if ! command -v gemini >/dev/null 2>&1; then
     echo "⚠ gemini CLI not found. UI/UX Reviewer pane will show an error."
     echo "  Install from: https://github.com/google-gemini/gemini-cli"
 fi
-
-# Warn if API keys are not set — agents will fail silently without them
-if [ -z "$ANTHROPIC_API_KEY" ]; then
-    echo "⚠ ANTHROPIC_API_KEY is not set. Builder (claude -p) will fail."
-    echo "  Set it in your shell profile or run: export ANTHROPIC_API_KEY=<key>"
-fi
-
-if [ -z "$OPENAI_API_KEY" ]; then
-    echo "⚠ OPENAI_API_KEY is not set. Code Reviewer (Codex) will fail."
-    echo "  Set it in your shell profile or run: export OPENAI_API_KEY=<key>"
-fi
-
-if [ -z "$GEMINI_API_KEY" ]; then
-    echo "⚠ GEMINI_API_KEY is not set. UI/UX Reviewer (Gemini) may fail"
-    echo "  (unless authenticated via 'gemini auth login')."
-fi
-
-# Build -e flags to propagate API keys into pane environments.
-# Without -e, a tmux server started from a different context would have
-# missing vars in all panes.
-ENV_FLAGS=()
-[ -n "$OPENAI_API_KEY" ]    && ENV_FLAGS+=(-e "OPENAI_API_KEY=$OPENAI_API_KEY")
-[ -n "$GEMINI_API_KEY" ]    && ENV_FLAGS+=(-e "GEMINI_API_KEY=$GEMINI_API_KEY")
-[ -n "$ANTHROPIC_API_KEY" ] && ENV_FLAGS+=(-e "ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY")
 
 # --- Detect environment and choose mode ---
 #
@@ -111,12 +87,12 @@ fi
 if [ "$MODE" = "window" ]; then
     # Window mode: new window in current session
     # The first pane of the new window becomes the Builder.
-    BUILDER_ID=$(tmux new-window -n "$WINDOW_NAME" -c "$WORK_DIR" "${ENV_FLAGS[@]}" -PF '#{pane_id}')
+    BUILDER_ID=$(tmux new-window -n "$WINDOW_NAME" -c "$WORK_DIR" -PF '#{pane_id}')
     TARGET_SESSION="$CURRENT_SESSION"
 else
     # Session mode: new detached session
     # The first pane of the new session becomes the Builder.
-    BUILDER_ID=$(tmux new-session -d -s "$SESSION_NAME" -c "$WORK_DIR" -x 220 -y 50 "${ENV_FLAGS[@]}" -PF '#{pane_id}')
+    BUILDER_ID=$(tmux new-session -d -s "$SESSION_NAME" -c "$WORK_DIR" -x 220 -y 50 -PF '#{pane_id}')
     TARGET_SESSION="$SESSION_NAME"
 fi
 
