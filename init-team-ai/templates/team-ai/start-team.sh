@@ -27,8 +27,8 @@
 # If the team-ai layout already exists, this script exits without changes.
 #
 # PREREQUISITES: Each CLI tool must be installed and logged in before use.
-# Auth is stored in per-user config files (~/.claude/, ~/.config/gemini/,
-# ~/.codex/) so it persists across all tmux panes and sessions.
+# Auth: Claude and Codex use subscription auth (~/.claude/, ~/.codex/).
+# Gemini uses OAuth — run `gemini auth login` before first use.
 # The Team Lead verifies auth status at pipeline start (preflight check).
 
 set -e
@@ -51,6 +51,7 @@ fi
 if ! command -v gemini >/dev/null 2>&1; then
     echo "⚠ gemini CLI not found. UI/UX Reviewer pane will show an error."
     echo "  Install from: https://github.com/google-gemini/gemini-cli"
+    echo "  Then run: gemini auth login"
 fi
 
 # --- Detect environment and choose mode ---
@@ -137,10 +138,15 @@ cat > "$WORK_DIR/.agent/pipeline/SESSION.json" <<EOF
 EOF
 echo "✓ SESSION.json written with pane IDs"
 
-# Initialize panes with ready messages
+# Launch agents in interactive mode with auto-approve
+# Builder: claude -p is invoked per-task by Team Lead, not started here
 tmux send-keys -t "$BUILDER_ID" "echo 'Builder pane ready. Awaiting tasks from Team Lead.'" Enter
-tmux send-keys -t "$UX_ID" "echo 'UI/UX Reviewer pane ready. Awaiting tasks from Team Lead.'" Enter
-tmux send-keys -t "$REVIEWER_ID" "echo 'Code Reviewer pane ready. Awaiting tasks from Team Lead.'" Enter
+
+# UI/UX Reviewer: Gemini interactive with yolo mode (auto-approve all tools)
+tmux send-keys -t "$UX_ID" "gemini -y" Enter
+
+# Code Reviewer: Codex interactive with full-auto (auto-approve + sandbox write)
+tmux send-keys -t "$REVIEWER_ID" "codex --full-auto" Enter
 
 # Status monitor — live display of pipeline state
 if command -v watch >/dev/null 2>&1; then

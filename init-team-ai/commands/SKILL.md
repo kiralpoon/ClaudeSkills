@@ -33,7 +33,7 @@ This skill sets up a new project for team AI collaboration by creating:
 - Move immediately to the next step after each operation completes
 - Only stop to analyze if a command fails
 
-**Target execution time: 1-2 seconds total**
+**Target execution time: under 30 seconds total**
 
 ## Skill Execution
 
@@ -55,20 +55,24 @@ if [ ! -d "$TARGET_DIR" ]; then
 fi
 ```
 
-**Step 2: Create Agents.md**
+**Step 2: Create or Update Agents.md**
 
-Copy from template if it doesn't exist:
+If the file doesn't exist, copy from template. If it exists and has section markers, merge template sections while preserving user content outside markers. If it exists without markers, overwrite and warn.
 
 ```bash
-if [ -f "$TARGET_DIR/Agents.md" ]; then
-  echo "  ℹ Agents.md already exists - skipping to preserve your customizations"
-else
+if [ ! -f "$TARGET_DIR/Agents.md" ]; then
   cp "$SKILL_DIR/templates/Agents.md" "$TARGET_DIR/Agents.md"
   if [ ! -f "$TARGET_DIR/Agents.md" ]; then
     echo "ERROR: Failed to create Agents.md"
     exit 1
   fi
   echo "  ✓ Created Agents.md"
+else
+  python3 "$SKILL_DIR/merge_sections.py" "$TARGET_DIR/Agents.md" "$SKILL_DIR/templates/Agents.md"
+  if [ $? -ne 0 ]; then
+    echo "  ✗ Failed to merge Agents.md"
+    exit 1
+  fi
 fi
 
 # ClaudeSkills repo only: append Skill Development Research section
@@ -93,40 +97,48 @@ RESEARCH_SECTION
 fi
 ```
 
-**Step 3: Create Claude.local.md**
+**Step 3: Create or Update Claude.local.md**
 
-Copy from template if it doesn't exist:
+Same merge strategy as Agents.md — section markers are merged, user content outside markers is preserved.
 
 ```bash
-if [ -f "$TARGET_DIR/Claude.local.md" ]; then
-  echo "  ℹ Claude.local.md already exists - skipping to preserve your customizations"
-else
+if [ ! -f "$TARGET_DIR/Claude.local.md" ]; then
   cp "$SKILL_DIR/templates/Claude.local.md" "$TARGET_DIR/Claude.local.md"
   if [ ! -f "$TARGET_DIR/Claude.local.md" ]; then
     echo "ERROR: Failed to create Claude.local.md"
     exit 1
   fi
   echo "  ✓ Created Claude.local.md"
+else
+  python3 "$SKILL_DIR/merge_sections.py" "$TARGET_DIR/Claude.local.md" "$SKILL_DIR/templates/Claude.local.md"
+  if [ $? -ne 0 ]; then
+    echo "  ✗ Failed to merge Claude.local.md"
+    exit 1
+  fi
 fi
 ```
 
-**Step 4: Create .agent Directory and PLANS.md**
+**Step 4: Create .agent Directory and Create or Update PLANS.md**
 
-Create the agent directory and copy PLANS.md from template:
+Create the agent directory and copy/merge PLANS.md from template:
 
 ```bash
 mkdir -p "$TARGET_DIR/.agent"
 echo "  ✓ Created .agent directory"
 
-if [ -f "$TARGET_DIR/.agent/PLANS.md" ]; then
-  echo "  ℹ .agent/PLANS.md already exists - skipping to preserve your customizations"
-else
+if [ ! -f "$TARGET_DIR/.agent/PLANS.md" ]; then
   cp "$SKILL_DIR/templates/PLANS.md" "$TARGET_DIR/.agent/PLANS.md"
   if [ ! -f "$TARGET_DIR/.agent/PLANS.md" ]; then
     echo "ERROR: Failed to create .agent/PLANS.md"
     exit 1
   fi
   echo "  ✓ Created .agent/PLANS.md"
+else
+  python3 "$SKILL_DIR/merge_sections.py" "$TARGET_DIR/.agent/PLANS.md" "$SKILL_DIR/templates/PLANS.md"
+  if [ $? -ne 0 ]; then
+    echo "  ✗ Failed to merge .agent/PLANS.md"
+    exit 1
+  fi
 fi
 ```
 
@@ -377,18 +389,16 @@ done
 echo "  ✓ Created .agent/pipeline/, .agent/templates/, .agent/reviews/"
 ```
 
-**Step 10: Copy TEAM.md**
+**Step 10: Copy TEAM.md (always overwrite)**
 
 ```bash
-if [ -f "$TARGET_DIR/.agent/TEAM.md" ]; then
-  echo "  ℹ .agent/TEAM.md already exists - skipping to preserve your customizations"
-else
-  cp "$SKILL_DIR/templates/team-ai/TEAM.md" "$TARGET_DIR/.agent/TEAM.md"
-  echo "  ✓ Created .agent/TEAM.md (communication protocol)"
-fi
+VERB="Created"
+[ -f "$TARGET_DIR/.agent/TEAM.md" ] && VERB="Updated"
+cp "$SKILL_DIR/templates/team-ai/TEAM.md" "$TARGET_DIR/.agent/TEAM.md"
+echo "  ✓ $VERB .agent/TEAM.md (communication protocol)"
 ```
 
-**Step 11: Copy Mode A Task Templates**
+**Step 11: Copy Mode A Task Templates (always overwrite)**
 
 Copy the six Mode A pipeline templates (build, fix, UX review, code review, deliberation):
 
@@ -396,27 +406,23 @@ Copy the six Mode A pipeline templates (build, fix, UX review, code review, deli
 MODE_A_FILES="build-task.md fix-task.md ux-task.md review-task.md ux-deliberation.md review-deliberation.md"
 
 for file in $MODE_A_FILES; do
-  if [ -f "$TARGET_DIR/.agent/templates/$file" ]; then
-    echo "  ℹ .agent/templates/$file already exists - skipping"
-  else
-    cp "$SKILL_DIR/templates/team-ai/$file" "$TARGET_DIR/.agent/templates/$file"
-    echo "  ✓ Created .agent/templates/$file"
-  fi
+  VERB="Created"
+  [ -f "$TARGET_DIR/.agent/templates/$file" ] && VERB="Updated"
+  cp "$SKILL_DIR/templates/team-ai/$file" "$TARGET_DIR/.agent/templates/$file"
+  echo "  ✓ $VERB .agent/templates/$file"
 done
 ```
 
-**Step 12: Copy start-team.sh**
+**Step 12: Copy start-team.sh (always overwrite)**
 
 ```bash
 mkdir -p "$TARGET_DIR/scripts"
 
-if [ -f "$TARGET_DIR/scripts/start-team.sh" ]; then
-  echo "  ℹ scripts/start-team.sh already exists - skipping"
-else
-  cp "$SKILL_DIR/templates/team-ai/start-team.sh" "$TARGET_DIR/scripts/start-team.sh"
-  chmod +x "$TARGET_DIR/scripts/start-team.sh"
-  echo "  ✓ Created scripts/start-team.sh (tmux layout launcher)"
-fi
+VERB="Created"
+[ -f "$TARGET_DIR/scripts/start-team.sh" ] && VERB="Updated"
+cp "$SKILL_DIR/templates/team-ai/start-team.sh" "$TARGET_DIR/scripts/start-team.sh"
+chmod +x "$TARGET_DIR/scripts/start-team.sh"
+echo "  ✓ $VERB scripts/start-team.sh (tmux layout launcher)"
 ```
 
 **Step 13: Create Gemini CLI Config**
@@ -476,18 +482,16 @@ fi
 echo "---"
 ```
 
-**Step 17: Copy Mode B Perspective Templates**
+**Step 17: Copy Mode B Perspective Templates (always overwrite)**
 
 ```bash
 MODE_B_FILES="perspective-ux.md perspective-arch.md perspective-devil.md review-synthesis.md"
 
 for file in $MODE_B_FILES; do
-  if [ -f "$TARGET_DIR/.agent/templates/$file" ]; then
-    echo "  ℹ .agent/templates/$file already exists - skipping"
-  else
-    cp "$SKILL_DIR/templates/team-ai/$file" "$TARGET_DIR/.agent/templates/$file"
-    echo "  ✓ Created .agent/templates/$file"
-  fi
+  VERB="Created"
+  [ -f "$TARGET_DIR/.agent/templates/$file" ] && VERB="Updated"
+  cp "$SKILL_DIR/templates/team-ai/$file" "$TARGET_DIR/.agent/templates/$file"
+  echo "  ✓ $VERB .agent/templates/$file"
 done
 ```
 
@@ -560,15 +564,14 @@ The success banner already mentions Mode B capability. No separate step needed.
   - `templates/team-ai/perspective-devil.md` - Mode B devil's advocate
   - `templates/team-ai/review-synthesis.md` - Mode B synthesis prompt
 - **Performance**: Files are copied instantly using `cp` command - no AI processing required
-- **Idempotency**: Running the skill multiple times is safe - existing files are preserved
+- **Idempotency**: Running the skill multiple times is safe - template updates propagate via section merge, user content is preserved
 - **Error Handling**: All file creation operations are validated with error checks
-- **Smart Handling**:
-  - Agents.md: Copied from template if doesn't exist (preserves user customizations if exists)
-  - Claude.local.md: Copied from template if doesn't exist (preserves user preferences if exists)
-  - .agent/PLANS.md: Copied from template if doesn't exist (preserves customizations if exists)
-  - settings.local.json:
-    - If doesn't exist: Copied from template (permissions + hooks)
-    - If exists: **Merges permissions and hooks from template** (preserves user additions)
+- **Update Strategy** (4 categories):
+  - **Category B (section merge)**: Agents.md, Claude.local.md, PLANS.md — template sections wrapped in `<!-- BEGIN/END TEMPLATE: name -->` markers are replaced on re-run; user content outside markers is preserved. Files without markers are overwritten with a warning.
+  - **Category A (always overwrite)**: TEAM.md, task templates, start-team.sh, Mode B templates — fully template-owned, always copied fresh from template.
+  - **Category C (smart merge)**: settings.local.json, .gitignore — custom merge logic preserves user additions while ensuring template entries are present.
+  - **Category D (never overwrite)**: .gemini/settings.json, .codex/config.toml — per-developer config, only created if missing.
+- **Section Merging**: `$SKILL_DIR/merge_sections.py` handles marker-based merge for Category B files — single source of truth, no duplication
 - **JSON Merging**: Uses Python 3 (almost always available) to properly parse and merge JSON - no external dependencies required
 - **Permission Merging**: Template permissions are added to existing permissions (user additions are preserved, template permissions are ensured)
 - **Gitignore Merging**: Template entries are added to existing .gitignore (user entries preserved, missing template entries added)

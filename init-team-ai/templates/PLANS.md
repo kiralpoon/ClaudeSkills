@@ -1,3 +1,4 @@
+<!-- BEGIN TEMPLATE: plans-core -->
 # Execution Plans (ExecPlans)
 
 This document describes the requirements for an execution plan ("ExecPlan"), a design document that any coding agent (Claude, Gemini, Codex, etc.) can follow to deliver a working feature or system change. Treat the reader as a complete beginner to this repository: they have only the current working tree and the single ExecPlan file you provide. There is no memory of prior plans and no external context.
@@ -158,3 +159,4 @@ In crates/foo/planner.rs, define:
 If you follow the guidance above, a single, stateless agent -- or a human novice -- can read your ExecPlan from top to bottom and produce a working, observable result. That is the bar: SELF-CONTAINED, SELF-SUFFICIENT, NOVICE-GUIDING, OUTCOME-FOCUSED.
 
 When you revise a plan, you must ensure your changes are comprehensively reflected across all sections, including the living document sections, and you must write a note at the bottom of the plan describing the change and the reason why. ExecPlans must describe not just the what but the why for almost everything.
+<!-- END TEMPLATE: plans-core -->

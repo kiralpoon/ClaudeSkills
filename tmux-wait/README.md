@@ -155,6 +155,81 @@ tmux send-keys -t 0 Down Enter
 
 **Note:** No need to use `output` mode for permission prompts anymore! The `prompt` mode now detects them automatically by checking for "Do you want to proceed?" BEFORE checking for regular prompts.
 
+## Multi-CLI Support
+
+The `prompt` mode auto-detects which CLI is running in a pane and applies CLI-specific prompt detection. Detection happens once at the start of each wait by scanning pane content for fingerprint patterns.
+
+### CLI Fingerprint Chart
+
+| CLI | Fingerprint Patterns | Prompt Char | Status Bar | Processing Indicators |
+|-----|---------------------|-------------|-----------|----------------------|
+| **Codex** | `gpt-`, `OpenAI Codex`, `% left` | `›` | `gpt-X.X default · NN% left · path` | `•`/`◦` `Working` (bullet alternates) |
+| **Gemini** | `Gemini CLI`, `/model`, `gemini-api-key`, `Gemini [0-9]` | `> ` or `* ` (YOLO) | `workspace ... branch ... sandbox ... /model` | Braille spinners: `⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏` |
+| **Claude** | `for shortcuts`, `claude`, `Esc to interrupt` | `❯` or `›` | `? for shortcuts` | `✻✽✶✢`, `Symbioting`, `Churned`, `Recombobulating`, `Running.*agents`, `thought for`, `⏸ plan mode` |
+| **Shell** | none of the above | `$`, `#`, `%`, `>`, `PS` | N/A | N/A |
+
+All three TUI CLIs have status bars **below** their input prompts. The script uses two scan ranges:
+- **Permission prompts** (e.g., "Do you want", "Action Required"): checked against the **full 50-line capture** — never missed
+- **Prompt characters** (`$`, `›`, `❯`, `> `, `* `): checked against the **last 10 non-empty lines** — sufficient because prompts are always near the bottom
+
+### Permission Prompt Detection
+
+Permission prompts are detected across all CLIs and trigger immediate return:
+
+| CLI | Permission Pattern | UI Style |
+|-----|-------------------|----------|
+| **Claude** | `"Do you want"`, `"Would you like"` | Numbered list with `❯` selector, Down/Up + Enter |
+| **Codex** | `"Would you like"`, `"Do you want"` | Numbered list with keyboard shortcuts (y/p/a/d/n/Esc) |
+| **Gemini** | `"Action Required"` | Boxed prompt with `●` bullet, Down + Enter |
+
+**Note:** Codex `--full-auto` auto-approves within workspace sandbox, so permission prompts rarely appear in pipeline use. Codex `--yolo` bypasses all prompts entirely.
+
+### Gemini `-y` Mode (YOLO vs Auto-Edit)
+
+Gemini's `-y` flag behavior depends on folder trust level:
+
+- **Trusted folder** → YOLO mode: status bar shows `YOLO Ctrl+Y`, prompt changes to ` * `, auto-approves ALL tool calls including shell execution. No "Action Required" prompts appear.
+- **Non-trusted/override** → auto-edit mode: status bar shows `auto-accept edits`, prompt stays ` > `, auto-approves file edits only, still prompts for shell/MCP commands.
+
+In auto-edit mode, shell commands trigger "Action Required" on first use — and approval is **per root command composition**, not per tool category. For example, approving `ls > file` does NOT cover `wc > file` or `rm`. Each distinct command pipeline needs separate approval. The caller must:
+
+1. Detect the "Action Required" prompt (tmux-wait does this automatically)
+2. Approve with "Allow for this session" — `tmux send-keys -t PANE Down Enter` (option 2)
+3. Subsequent uses of the **exact same command root** are auto-approved for the session
+
+**Gemini permission prompt format:**
+```
+╭──────────────────────────────────────────╮
+│ Action Required                           │
+│                                           │
+│ ?  Shell <command> [current working dir]  │
+│                                           │
+│ Allow execution of: '<tool list>'?        │
+│                                           │
+│ ● 1. Allow once                          │
+│   2. Allow for this session              │
+│   3. No, suggest changes (esc)           │
+╰──────────────────────────────────────────╯
+```
+
+Codex `--full-auto` truly auto-approves everything — no priming needed.
+
+### Two-Enter Pattern (All TUI CLIs)
+
+When sending input to any interactive TUI (Claude, Codex, Gemini) via tmux, you **must** use the two-Enter pattern:
+
+```bash
+tmux send-keys -t <pane> "your text here" Enter   # Types text + first Enter
+sleep 1                                             # Wait for autocomplete/UI
+tmux send-keys -t <pane> Enter                     # Second Enter to submit
+```
+
+Single-Enter works for bare shell commands but NOT for TUI input. This applies to all input types: slash commands, text prompts, task instructions.
+
+### Shell Fallback
+
+If a CLI pane returns to a shell prompt (CLI exited), the shell prompt is detected regardless of the initial CLI type. This handles cases where an agent crashes or exits unexpectedly.
+
 ## Benefits
 
 ### Event-Driven (command mode)
@@ -237,21 +312,50 @@ tmux wait-for signal  # Blocks until signal sent
 Uses intelligent multi-stage detection with 50-line capture:
 
 ```bash
-# Stage 1: Check for permission prompts FIRST (prevents false positives)
-grep -qF "Do you want to proceed?"
+# Stage 1: Check full 50-line capture for permission prompts (all CLIs)
+grep -qF "Do you want"        # Claude
+grep -qF "Action Required"    # Gemini
 
-# Stage 2: Check for prompt patterns at line start OR line end:
-$ # %     # Shell prompts (bash, zsh, sh, root)
-❯ ›       # Claude Code prompts
+# Stage 2: Check last 10 non-empty lines for CLI-specific prompts
+# Codex: ^\s*› (with • Working check to avoid false idle)
+# Gemini: ^ [>*]  (with spinner check ⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏)
+# Claude: ^\s*(❯|›) (with processing indicator check)
+# Shell:  $ # % > (last line only)
 
-# Stage 3: Special handling for Claude Code idle state:
-# When "? for shortcuts" is detected, searches last 5 lines
-# for any prompt character - handles dynamic suggestion text
+# Stage 3: Shell fallback for all CLI types (agent exited)
 ```
 
-**Key improvements:**
-- 50-line capture (up from 10) ensures permission prompts are detected even with lots of output above them
-- Permission check happens BEFORE prompt check to avoid false positives from `❯` characters in permission dialogs
+**Key design decisions:**
+- Permission prompts checked against **full 50-line capture** (never missed)
+- Prompt characters checked against **last 10 non-empty lines** (TUI status bars sit below prompts)
+- Each CLI has its own processing detection to prevent premature idle return
+- Detection order (Codex → Gemini → Claude → Shell) prevents fingerprint overlaps
+
+### Codex Processing Detection
+
+Codex displays the `›` prompt even while actively processing. The script checks for `[•◦] Working` in the last 10 lines to distinguish idle from processing (the bullet alternates between filled `•` and hollow `◦`):
+
+```
+# While processing (› visible but NOT idle):
+◦ Working (42s • esc to interrupt)
+› <suggestion text>
+  gpt-5.4 default · 99% left · path
+
+# Truly idle (no Working indicator):
+› <suggestion text>
+  gpt-5.4 default · 99% left · path
+```
+
+### Codex Startup Prompts
+
+Codex may show trust directory or update prompts at startup that use the `›` selector character — the same character as the idle input prompt. The script checks last 10 lines for `Press enter to continue` to distinguish startup prompts from idle state, and returns immediately so the caller can handle them (typically by pressing Enter).
+
+### Fingerprint Overlap
+
+`? for shortcuts` appears in **all three CLIs** (Codex, Gemini, Claude) — it is NOT a reliable single-CLI fingerprint. The detection order (Codex → Gemini → Claude → Shell) prevents misidentification:
+- Codex is caught by `gpt-` or `% left` first
+- Gemini is caught by `/model` or `Gemini [0-9]` first
+- Claude's `for shortcuts` fingerprint only triggers if neither matched
 
 ### Output Monitoring
 

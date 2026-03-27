@@ -1,3 +1,4 @@
+<!-- BEGIN TEMPLATE: agents-core -->
 # ExecPlans
 When writing complex features or significant refactors, use an ExecPlan (as described in .agent/PLANS.md) from design to implementation. Save each ExecPlan as a file in the `.agent/` directory using the naming convention `ExecPlan-<descriptive-name>.md`. Write the file at the start of the work and update it in place throughout -- the user may have it open in their editor and relies on it as a live view of progress.
 
@@ -39,3 +40,4 @@ sleep 10 && tmux capture-pane -t 0 -p -S -100  # still waiting...
 - For such files, do not read beyond the header, do not summarize, cite, modify, or rely on their content unless the user explicitly asks.
 
 This policy applies to the entire repository.
+<!-- END TEMPLATE: agents-core -->

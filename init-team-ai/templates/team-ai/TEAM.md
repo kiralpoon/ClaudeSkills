@@ -16,12 +16,14 @@ Builder (Claude via claude -p, pane saved as "builder")
   Only modifies source code when instructed by the Team Lead.
 
 UI/UX Reviewer (Gemini CLI or Claude fallback, pane saved as "ux")
-  Runs non-interactively via: gemini -y < taskfile
+  Runs interactively via: gemini -y (started by start-team.sh, persists across tasks).
+  Tasks sent via two-Enter pattern into the running TUI prompt.
   Reviews code and tests visually using Chrome MCP for browser apps.
   Writes 02-ux-review.md. Does NOT modify code.
 
 Code Reviewer (Codex CLI, pane saved as "reviewer")
-  Runs non-interactively via: codex exec --full-auto - < taskfile
+  Runs interactively via: codex --full-auto (started by start-team.sh, persists across tasks).
+  Tasks sent via two-Enter pattern into the running TUI prompt.
   Reviews code quality, correctness, style, and security.
   Can also test visually using Chrome MCP for browser apps.
   Writes 03-code-review.md. Does NOT modify code.
@@ -52,9 +54,11 @@ Stage 4 (Evaluate):
   If all clean: present final summary to user for approval before commit.
 
 Completion detection: The handoff file IS the signal. When an agent
-finishes, it writes its handoff file and exits. The Team Lead detects
-completion via tmux-wait (pane returns to shell), then reads the
-handoff file and parses its Verdict field for routing.
+finishes, it writes its handoff file and returns to its prompt.
+Builder (claude -p) exits to shell; Gemini and Codex return to their
+TUI prompts (> and › respectively). The Team Lead detects completion
+via tmux-wait prompt mode, then reads the handoff file and parses
+its Verdict field for routing.
 
 ## Handoff File Format
 
@@ -95,12 +99,13 @@ Every handoff file must use exactly this structure:
 The pipeline uses handoff files as both payload and coordination signal
 (the "blackboard pattern"). When an agent finishes, it writes its handoff
 file (e.g., 02-ux-review.md). The Team Lead detects completion via tmux-wait
-(pane returns to shell prompt), then checks for the handoff file and parses
+prompt mode (Builder returns to shell `$`; Gemini returns to `> `;
+Codex returns to `›`), then checks for the handoff file and parses
 the Verdict field. No separate signal files are needed — the handoff file's
 existence IS the signal, and its Verdict field IS the routing decision.
 
 Completion detection flow:
-1. tmux-wait returns (pane at shell prompt) → agent has exited
+1. tmux-wait prompt returns → agent is idle (shell for Builder, TUI prompt for Gemini/Codex)
 2. Check if expected handoff file exists (e.g., 02-ux-review.md)
 3. If exists: parse Verdict field → route accordingly
 4. If missing: treat as error, log, increment round counter, retry
@@ -164,9 +169,9 @@ Updated by Team Lead after every state change.
   error     — agent produced no handoff file, or handoff was malformed
 These two axes together let the Team Lead distinguish "Codex finished and
 returned APPROVED" from "Codex timed out and is stuck" without polling the
-pane repeatedly. Since Codex and Gemini exit after each task (ephemeral
-executors, not persistent daemons), there is no distinction between "idle"
-and "exited" — both are simply "completed".
+pane repeatedly. Builder (claude -p) exits after each task. Gemini and
+Codex run persistently in interactive mode — they return to their TUI
+prompts after each task. All three states map to activity_state "completed".
 "active_agent" names which agent is currently responsible.
 "loop_round" counts how many full build→ux_review→code_review loops
 have run. The pipeline loops until both reviewers approve with no
@@ -225,20 +230,46 @@ On the 6th rejection within a stage, Team Lead escalates to the user.
 
 ## CLI Authentication
 
-All agent CLIs use subscription-based auth (no API keys). Each developer
-logs in once per machine; credentials are stored in per-user config files
-and persist across all tmux panes and sessions.
-
   Claude (Builder):       Already authenticated if you are running Claude Code.
                           Auth stored in ~/.claude/
-  Gemini (UI/UX Review):  Run `gemini auth login` (browser OAuth).
-                          Auth stored in ~/.config/gemini/
-  Codex (Code Review):    Run `codex auth login`.
+  Gemini (UI/UX Review):  Uses OAuth authentication.
+                          Run: gemini auth login
+                          Auth stored in ~/.gemini/
+  Codex (Code Review):    Run: codex auth login
                           Auth stored in ~/.codex/
 
 The Team Lead runs a preflight check before starting the pipeline:
 it verifies each CLI is installed and authenticated. If any CLI is not
 ready, it tells the user which login command to run before proceeding.
+
+## Two-Enter Pattern (Interactive CLIs)
+
+ALL input to interactive TUI agents (Claude Code, Codex, Gemini) requires
+a two-Enter submission pattern when sending commands via tmux:
+
+  1. tmux send-keys -t <pane> "your text here" Enter
+  2. sleep 1   (wait for autocomplete/UI to process)
+  3. tmux send-keys -t <pane> Enter   (submit)
+
+This is MANDATORY for all input types: slash commands, text prompts, task
+instructions. The first Enter types the text and triggers the TUI's input
+system; the second Enter (after 1 second) actually submits it.
+
+NEVER combine both Enters in one command — it will NOT work:
+  ✗ tmux send-keys -t <pane> "text" Enter Enter
+
+## Gemini Permission Handling
+
+Gemini's `-y` flag enables "auto-edit" mode — it auto-approves file edits
+but still prompts for shell and MCP commands via "Action Required" dialogs.
+On first use of each shell tool category per session, the Team Lead must:
+
+  1. Detect the "Action Required" prompt via tmux-wait (auto-detected)
+  2. Approve with "Allow for this session" (Down + Enter for option 2)
+  3. Subsequent uses of the same tool category are auto-approved
+
+Codex `--full-auto` auto-approves within workspace sandbox — no prompts
+for typical pipeline operations (file read/write/delete confirmed via live testing).
 
 ## Gitignore Note
 
