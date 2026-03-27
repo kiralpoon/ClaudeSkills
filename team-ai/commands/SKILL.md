@@ -99,6 +99,25 @@ If the result is not a shell (`bash`, `zsh`, `sh`, `fish`) AND not `codex` or `g
 
 **IMPORTANT**: Gemini and Codex run persistently in interactive mode. They do NOT need to be restarted between tasks. Only the Builder (claude -p) is invoked per task.
 
+**TUI Crash Detection**: If the UX pane (Gemini) or Reviewer pane (Codex) is running a bare shell (`bash`, `zsh`, `sh`, `fish`) instead of the expected TUI, the agent has crashed or exited. Restart it:
+
+- **Gemini crashed**: `tmux send-keys -t "$UX_PANE" "gemini -y" Enter` then `/tmux-wait prompt $UX_PANE 30`
+- **Codex crashed**: `tmux send-keys -t "$REVIEWER_PANE" "codex --full-auto" Enter` then `/tmux-wait prompt $REVIEWER_PANE 30`
+
+Always verify with `/see-terminal` after restarting to confirm the TUI is ready.
+
+### Step 6: Verify all panes with /see-terminal
+
+**CRITICAL:** Before starting any pipeline work, visually verify each pane is in the expected state:
+
+```
+/see-terminal $BUILDER_PANE
+/see-terminal $UX_PANE
+/see-terminal $REVIEWER_PANE
+```
+
+Do NOT skip this step. The Team Lead must double-check the tmux session properly and see each terminal before jumping into any conclusion about readiness.
+
 Log: `[timestamp] Session healthy. Lead: LEAD_PANE, Builder: BUILDER_PANE, UX: UX_PANE, Reviewer: REVIEWER_PANE`
 
 ---
@@ -180,19 +199,26 @@ rm -f .agent/pipeline/01-build.md
 
 Round 1:
 ```bash
-tmux send-keys -t "$BUILDER_PANE" "claude -p < .agent/pipeline/.build-task.md" Enter
+tmux send-keys -t "$BUILDER_PANE" "claude -p --allowedTools 'Edit,Write,Read,Bash,Glob,Grep' < .agent/pipeline/.build-task.md" Enter
 ```
 
 Round > 1:
 ```bash
-tmux send-keys -t "$BUILDER_PANE" "claude -p < .agent/pipeline/.fix-task.md" Enter
+tmux send-keys -t "$BUILDER_PANE" "claude -p --allowedTools 'Edit,Write,Read,Bash,Glob,Grep' < .agent/pipeline/.fix-task.md" Enter
 ```
+
+**IMPORTANT:** The `--allowedTools` flag is required because `claude -p` in non-interactive mode denies write operations by default.
 
 **Log:** `[timestamp] Build task sent to Builder (round LOOP_ROUND). Pane: BUILDER_PANE`
 
 **Wait:**
 ```
 /tmux-wait prompt $BUILDER_PANE 600
+```
+
+**Verify pane state:** Always check the terminal after waiting to confirm the agent actually finished:
+```
+/see-terminal $BUILDER_PANE 100
 ```
 
 **Check handoff:** If `.agent/pipeline/01-build.md` missing, set activity_state=error, log, re-send.
@@ -227,6 +253,11 @@ tmux send-keys -t "$UX_PANE" Enter
 /tmux-wait prompt $UX_PANE 300
 ```
 
+**Verify pane state:** Always check the terminal after waiting:
+```
+/see-terminal $UX_PANE 100
+```
+
 **Check handoff:** If `.agent/pipeline/02-ux-review.md` missing, set activity_state=error, log, re-send.
 
 **Parse verdict:** Read `02-ux-review.md`, extract `Verdict:` field.
@@ -259,6 +290,11 @@ tmux send-keys -t "$REVIEWER_PANE" Enter
 **Wait:**
 ```
 /tmux-wait prompt $REVIEWER_PANE 300
+```
+
+**Verify pane state:** Always check the terminal after waiting:
+```
+/see-terminal $REVIEWER_PANE 100
 ```
 
 **Check handoff:** If `.agent/pipeline/03-code-review.md` missing, set activity_state=error, log, re-send.
@@ -389,7 +425,7 @@ tmux send-keys -t "$UX_PANE" Enter
 
 If ux_agent = "claude" (fallback, non-interactive):
 ```bash
-tmux send-keys -t "$UX_PANE" "claude -p < .agent/pipeline/.ux-task.md > .agent/pipeline/ux-findings.md" Enter
+tmux send-keys -t "$UX_PANE" "claude -p --allowedTools 'Read,Glob,Grep,Bash' < .agent/pipeline/.ux-task.md > .agent/pipeline/ux-findings.md" Enter
 ```
 
 **Send Architecture task to Codex pane:**
@@ -403,7 +439,7 @@ tmux send-keys -t "$REVIEWER_PANE" Enter
 
 If arch_agent = "claude" (fallback, non-interactive):
 ```bash
-tmux send-keys -t "$REVIEWER_PANE" "claude -p < .agent/pipeline/.arch-task.md > .agent/pipeline/arch-findings.md" Enter
+tmux send-keys -t "$REVIEWER_PANE" "claude -p --allowedTools 'Read,Glob,Grep,Bash' < .agent/pipeline/.arch-task.md > .agent/pipeline/arch-findings.md" Enter
 ```
 
 **Wait for both (sequential waits, parallel execution):**
@@ -468,3 +504,6 @@ Review complete. See .agent/reviews/<filename>.md for the full synthesis.
 6. **The handoff file IS the signal** — its existence means the agent is done, its Verdict field determines routing.
 7. **Deliberation does not consume a revision round** — it's part of the same round.
 8. **Independent 5-round budgets** — UX review and code review each get up to 5 rejections before escalating.
+9. **Always verify with /see-terminal** — after every `/tmux-wait` call, use `/see-terminal` to visually confirm the pane is in the expected state. Never assume a pane is ready based solely on tmux-wait returning success. The Team Lead must double-check the tmux session properly before making decisions.
+10. **Builder needs --allowedTools** — always use `claude -p --allowedTools 'Edit,Write,Read,Bash,Glob,Grep'` because non-interactive mode denies write operations by default.
+11. **Detect TUI crashes** — before sending tasks to Gemini or Codex, verify their TUI is still running. If the pane shows a bare shell, restart the TUI before proceeding.

@@ -104,8 +104,11 @@ while ((poll_count++ < MAX_POLLS)); do
   if [[ "$last_line" =~ (❯|›)[[:space:]]*$ ]] || [[ "$last_line" =~ ^[[:space:]]*(❯|›) ]]; then
     # Claude prompt found - check if still thinking/processing
     # Only check last 5 lines to avoid stale indicators from previous operations
+    # IMPORTANT: Only match ACTIVE states. Do NOT add star chars (✻✽✶✢) or
+    # completion words (Brewed/Churned/Cooked/thought for) — they persist after
+    # Claude finishes and cause false blocking on idle prompts.
     last_5_check=$(echo "$output" | sed '/^[[:space:]]*$/d' | tail -5)
-    if echo "$last_5_check" | grep -qE "(✻|✽|✶|✢|Symbioting|Churned|Recombobulating|Running.*agents|Esc to interrupt|thought for|⏸ plan mode)"; then
+    if echo "$last_5_check" | grep -qE "(Symbioting|Recombobulating|Running.*agents|[Ee]sc to interrupt|⏸ plan mode)"; then
       # Claude is still processing, keep waiting
       sleep 0.2
       continue
@@ -139,7 +142,8 @@ while ((poll_count++ < MAX_POLLS)); do
     if echo "$last_5_lines" | grep -qE '^\s*(❯|›)'; then
       # Found Claude prompt - check if still thinking/processing
       # Only check last 5 lines to avoid stale indicators from previous operations
-      if echo "$last_5_lines" | grep -qE "(✻|✽|✶|✢|Symbioting|Churned|Recombobulating|Running.*agents|Esc to interrupt|thought for|⏸ plan mode)"; then
+      # IMPORTANT: Only match ACTIVE states — see comment above for rationale
+      if echo "$last_5_lines" | grep -qE "(Symbioting|Recombobulating|Running.*agents|[Ee]sc to interrupt|⏸ plan mode)"; then
         # Claude is still processing, keep waiting
         sleep 0.2
         continue
@@ -412,12 +416,15 @@ The `prompt` mode detects the following shell prompts:
 
 **IMPORTANT:** This check ONLY applies when a **Claude Code prompt** (`❯` or `›`) is detected. Regular shell prompts (`$`, `#`, `%`, `>`, `PS`) return immediately without checking for thinking indicators.
 
-**Detected Processing States (Claude prompts only):**
+**Detected Active Processing States (Claude prompts only):**
 - `Symbioting...` - Claude is actively thinking/processing
-- `Churned for...` - Claude finished a thinking cycle
+- `Recombobulating...` - Claude is actively processing
 - `Running.*agents` / `Explore agents` - Parallel agents executing
-- `ctrl+b ctrl+b...to run in background` - Background tasks available
+- `Esc to interrupt` - Active task running
 - `⏸ plan mode on` - Plan mode is active
+
+**NOT treated as active (completion indicators):**
+- `✻ Brewed for...` / `✻ Churned for...` / `✻ Cooked for...` - These are COMPLETION messages, not active states. They remain visible after Claude finishes and returns to idle prompt.
 
 **How it works:**
 1. If a Claude prompt (`❯` or `›`) is detected AND any processing indicator is found in the last 5 non-empty lines, tmux-wait continues waiting
