@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "chrome": {
+      "command": "npx",
+      "args": ["-y", "chrome-devtools-mcp@latest", "--executablePath=/usr/bin/google-chrome"],
+      "trust": true
+    }
+  }
+}
