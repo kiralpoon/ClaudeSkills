@@ -2,7 +2,7 @@
 name: init-team-ai
 description: Initialize a new project with team AI configuration files
 argument-hint: [project-path (optional, defaults to current directory)]
-allowed-tools: Read(*), Bash(mkdir:*), Bash(cp:*), Bash(cat:*), Bash(echo:*), Bash(grep:*), Bash(git:*), Bash(command:*), Bash(python3:*)
+allowed-tools: Read(*), Bash(mkdir:*), Bash(cp:*), Bash(cat:*), Bash(echo:*), Bash(grep:*), Bash(git:*), Bash(command:*), Bash(python3:*), Bash(chmod:*), Bash(touch:*)
 ---
 
 # Initialize Team AI Project
@@ -13,6 +13,12 @@ This skill sets up a new project for team AI collaboration by creating:
 3. `.claude/settings.local.json` - Local settings with SessionStart hooks
 4. `.agent/PLANS.md` - Detailed ExecPlan authoring guidelines (gitignored)
 5. Updated `.gitignore` - Ensures local files are not committed
+6. `.agent/TEAM.md` - Team AI communication protocol (committed)
+7. `.agent/templates/` - Task and deliberation templates for Mode A pipeline (committed)
+8. `.agent/templates/` - Perspective templates for Mode B multi-review (committed)
+9. `scripts/start-team.sh` - tmux layout launcher for agent panes
+10. `.gemini/settings.json` - Gemini CLI Chrome MCP config (gitignored, per-developer)
+11. `.codex/config.toml` - Codex CLI Chrome MCP config (gitignored, per-developer)
 
 ## Execution Efficiency Guidelines
 
@@ -290,7 +296,24 @@ except Exception as e:
 # Get non-empty, non-comment entries from template
 template_entries = [line for line in template_lines if line.strip() and not line.strip().startswith('#')]
 
-# Check which template entries are missing
+# Migration: replace blanket .agent/ with specific entries
+migrated = False
+for i, line in enumerate(existing_lines):
+    if line.strip() == '.agent/':
+        # Replace the single blanket line with two specific entries
+        existing_lines[i] = '.agent/PLANS.md'
+        existing_lines.insert(i + 1, '.agent/pipeline/')
+        migrated = True
+        break
+
+if migrated:
+    # Rewrite the file with the replacement applied
+    with open(gitignore_file, 'w') as f:
+        f.write('\n'.join(existing_lines) + '\n')
+    print("  ✓ Migrated .agent/ → .agent/PLANS.md + .agent/pipeline/")
+    print("    (.agent/TEAM.md, .agent/templates/, .agent/reviews/ are now tracked by git)")
+
+# Check which template entries are missing (rebuild set after potential migration)
 existing_set = set(line.strip() for line in existing_lines)
 missing_entries = [entry for entry in template_entries if entry.strip() not in existing_set]
 
@@ -329,7 +352,150 @@ if [ ! -f "$TARGET_DIR/.gitignore" ]; then
 fi
 ```
 
-**Step 8: Report Success**
+**Step 8: Core Files Complete**
+
+```bash
+echo ""
+echo "  ── Core files created. Setting up Team AI pipeline... ──"
+echo ""
+```
+
+**Step 9: Create Team AI Directories**
+
+Create the pipeline, templates, and reviews directories. Add `.gitkeep` files so git tracks the committed directories:
+
+```bash
+mkdir -p "$TARGET_DIR/.agent/pipeline" "$TARGET_DIR/.agent/templates" "$TARGET_DIR/.agent/reviews"
+
+# .gitkeep ensures git tracks templates/ and reviews/ even when empty
+# (pipeline/.gitkeep exists locally but is gitignored — that's fine)
+for dir in pipeline templates reviews; do
+  if [ ! -f "$TARGET_DIR/.agent/$dir/.gitkeep" ]; then
+    touch "$TARGET_DIR/.agent/$dir/.gitkeep"
+  fi
+done
+echo "  ✓ Created .agent/pipeline/, .agent/templates/, .agent/reviews/"
+```
+
+**Step 10: Copy TEAM.md**
+
+```bash
+if [ -f "$TARGET_DIR/.agent/TEAM.md" ]; then
+  echo "  ℹ .agent/TEAM.md already exists - skipping to preserve your customizations"
+else
+  cp "$SKILL_DIR/templates/team-ai/TEAM.md" "$TARGET_DIR/.agent/TEAM.md"
+  echo "  ✓ Created .agent/TEAM.md (communication protocol)"
+fi
+```
+
+**Step 11: Copy Mode A Task Templates**
+
+Copy the six Mode A pipeline templates (build, fix, UX review, code review, deliberation):
+
+```bash
+MODE_A_FILES="build-task.md fix-task.md ux-task.md review-task.md ux-deliberation.md review-deliberation.md"
+
+for file in $MODE_A_FILES; do
+  if [ -f "$TARGET_DIR/.agent/templates/$file" ]; then
+    echo "  ℹ .agent/templates/$file already exists - skipping"
+  else
+    cp "$SKILL_DIR/templates/team-ai/$file" "$TARGET_DIR/.agent/templates/$file"
+    echo "  ✓ Created .agent/templates/$file"
+  fi
+done
+```
+
+**Step 12: Copy start-team.sh**
+
+```bash
+mkdir -p "$TARGET_DIR/scripts"
+
+if [ -f "$TARGET_DIR/scripts/start-team.sh" ]; then
+  echo "  ℹ scripts/start-team.sh already exists - skipping"
+else
+  cp "$SKILL_DIR/templates/team-ai/start-team.sh" "$TARGET_DIR/scripts/start-team.sh"
+  chmod +x "$TARGET_DIR/scripts/start-team.sh"
+  echo "  ✓ Created scripts/start-team.sh (tmux layout launcher)"
+fi
+```
+
+**Step 13: Create Gemini CLI Config**
+
+```bash
+mkdir -p "$TARGET_DIR/.gemini"
+
+if [ -f "$TARGET_DIR/.gemini/settings.json" ]; then
+  echo "  ℹ .gemini/settings.json already exists - skipping"
+else
+  cp "$SKILL_DIR/templates/team-ai/gemini-settings.json" "$TARGET_DIR/.gemini/settings.json"
+  echo "  ✓ Created .gemini/settings.json (Chrome MCP for Gemini)"
+fi
+```
+
+**Step 14: Create Codex CLI Config**
+
+```bash
+mkdir -p "$TARGET_DIR/.codex"
+
+if [ -f "$TARGET_DIR/.codex/config.toml" ]; then
+  echo "  ℹ .codex/config.toml already exists - skipping"
+else
+  cp "$SKILL_DIR/templates/team-ai/codex-config.toml" "$TARGET_DIR/.codex/config.toml"
+  echo "  ✓ Created .codex/config.toml (Chrome MCP for Codex)"
+fi
+```
+
+**Step 15: Verify Codex CLI Readiness**
+
+```bash
+echo ""
+echo "--- CLI Readiness Check ---"
+
+if command -v codex >/dev/null 2>&1; then
+  CODEX_VERSION=$(codex --version 2>&1 | head -1)
+  echo "  ✓ codex CLI found: $CODEX_VERSION"
+else
+  echo "  ⚠ codex CLI not found. Code Reviewer will not work."
+  echo "    Install from: https://github.com/openai/codex"
+  echo "    Then run: codex auth login"
+fi
+```
+
+**Step 16: Verify Gemini CLI Readiness**
+
+```bash
+if command -v gemini >/dev/null 2>&1; then
+  GEMINI_VERSION=$(gemini --version 2>&1 | head -1)
+  echo "  ✓ gemini CLI found: $GEMINI_VERSION"
+else
+  echo "  ⚠ gemini CLI not found. UI/UX Reviewer will not work."
+  echo "    Install from: https://github.com/google-gemini/gemini-cli"
+  echo "    Then run: gemini auth login"
+fi
+
+echo "---"
+```
+
+**Step 17: Copy Mode B Perspective Templates**
+
+```bash
+MODE_B_FILES="perspective-ux.md perspective-arch.md perspective-devil.md review-synthesis.md"
+
+for file in $MODE_B_FILES; do
+  if [ -f "$TARGET_DIR/.agent/templates/$file" ]; then
+    echo "  ℹ .agent/templates/$file already exists - skipping"
+  else
+    cp "$SKILL_DIR/templates/team-ai/$file" "$TARGET_DIR/.agent/templates/$file"
+    echo "  ✓ Created .agent/templates/$file"
+  fi
+done
+```
+
+**Step 18: (No-op) Ensure Mode B Ephemeral Files Are Gitignored**
+
+The `.agent/pipeline/` directory is already gitignored (covers `ux-findings.md`, `arch-findings.md`, `devil-findings.md`, `REVIEW-CONFIG.json` at runtime). No additional gitignore entries needed — all Mode B working files go in `.agent/pipeline/` and synthesis outputs go in `.agent/reviews/` (committed).
+
+**Step 19: Report Success**
 
 ```bash
 echo ""
@@ -337,21 +503,39 @@ echo "=========================================="
 echo "Team AI Initialization Complete!"
 echo "=========================================="
 echo ""
-echo "Summary:"
+echo "Core files:"
 echo "  ✓ Agents.md (core agent behavior & ExecPlan usage)"
 echo "  ✓ Claude.local.md (local preferences)"
 echo "  ✓ .claude/settings.local.json (hooks & permissions)"
 echo "  ✓ .agent/PLANS.md (detailed ExecPlan guidelines)"
 echo "  ✓ .gitignore (updated with local files)"
 echo ""
-echo "Next steps:"
-echo "  1. Customize Agents.md and Claude.local.md for your preferences"
-echo "  2. Add more permissions to .claude/settings.local.json as needed"
-echo "  3. Start a new Claude session to load the configuration"
+echo "Team AI pipeline (Mode A — build→review):"
+echo "  ✓ .agent/TEAM.md (communication protocol)"
+echo "  ✓ .agent/templates/ (6 task & deliberation templates)"
+echo "  ✓ scripts/start-team.sh (tmux layout launcher)"
 echo ""
-echo "These files are gitignored and will not be committed."
+echo "Team AI review (Mode B — multi-perspective):"
+echo "  ✓ .agent/templates/ (4 perspective & synthesis templates)"
+echo ""
+echo "Agent CLI configs (per-developer, gitignored):"
+echo "  ✓ .gemini/settings.json (Chrome MCP for Gemini)"
+echo "  ✓ .codex/config.toml (Chrome MCP for Codex)"
+echo ""
+echo "Next steps:"
+echo "  1. Install CLIs: codex (https://github.com/openai/codex)"
+echo "     gemini (https://github.com/google-gemini/gemini-cli)"
+echo "  2. Authenticate: codex auth login && gemini auth login"
+echo "  3. Install Chrome MCP: /chrome-mcp (for browser testing)"
+echo "  4. Start a new Claude session to load the configuration"
+echo "  5. Use /team-ai to run the pipeline"
+echo ""
 echo "=========================================="
 ```
+
+**Step 20: (Merged into Step 19)**
+
+The success banner already mentions Mode B capability. No separate step needed.
 
 ## Implementation Notes
 
@@ -361,6 +545,20 @@ echo "=========================================="
   - `templates/PLANS.md` - Detailed ExecPlan authoring guidelines template
   - `templates/settings.local.json` - Default settings with hooks and permissions
   - `templates/.gitignore` - Gitignore entries for Claude Code local files
+  - `templates/team-ai/TEAM.md` - Communication protocol
+  - `templates/team-ai/build-task.md` - Builder initial task template
+  - `templates/team-ai/fix-task.md` - Builder revision round template
+  - `templates/team-ai/ux-task.md` - UI/UX review task template
+  - `templates/team-ai/review-task.md` - Code review task template
+  - `templates/team-ai/ux-deliberation.md` - UX deliberation template
+  - `templates/team-ai/review-deliberation.md` - Code review deliberation template
+  - `templates/team-ai/start-team.sh` - tmux layout launcher
+  - `templates/team-ai/gemini-settings.json` - Gemini Chrome MCP config
+  - `templates/team-ai/codex-config.toml` - Codex Chrome MCP config
+  - `templates/team-ai/perspective-ux.md` - Mode B UX perspective
+  - `templates/team-ai/perspective-arch.md` - Mode B architecture perspective
+  - `templates/team-ai/perspective-devil.md` - Mode B devil's advocate
+  - `templates/team-ai/review-synthesis.md` - Mode B synthesis prompt
 - **Performance**: Files are copied instantly using `cp` command - no AI processing required
 - **Idempotency**: Running the skill multiple times is safe - existing files are preserved
 - **Error Handling**: All file creation operations are validated with error checks

@@ -3,7 +3,12 @@
 *.local.json
 Agents.md
 Claude.local.md
-.agent/
+.agent/PLANS.md
+.agent/pipeline/
+
+# Team AI local config (per-developer, not committed)
+.gemini/settings.json
+.codex/
 
 # Operating System files
 .DS_Store
