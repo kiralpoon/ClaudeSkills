@@ -271,6 +271,32 @@ On first use of each shell tool category per session, the Team Lead must:
 Codex `--full-auto` auto-approves within workspace sandbox — no prompts
 for typical pipeline operations (file read/write/delete confirmed via live testing).
 
+## Mode B — Multi-Perspective Review
+
+The team-ai skill supports a second mode: `/team-ai review <subject>`.
+Instead of the sequential build→review pipeline, Mode B runs three
+simultaneous perspective reviews and synthesises findings.
+
+Perspectives:
+  UX / User Impact    — Gemini (or Claude fallback) in the UX pane
+  Technical Architecture — Codex (or Claude fallback) in the Reviewer pane
+  Devil's Advocate    — Claude (Team Lead self-directed) in the Builder pane
+
+Flow:
+1. Team Lead prepares perspective task files from templates in .agent/templates/
+   (perspective-ux.md, perspective-arch.md, perspective-devil.md)
+2. UX and Architecture tasks sent to panes in parallel (file-reference + two-Enter)
+3. Both panes complete → Team Lead reads ux-findings.md and arch-findings.md
+4. Devil's Advocate runs with both sets of findings as context → devil-findings.md
+5. Team Lead synthesises all three into .agent/reviews/<YYYYMMDD>-<slug>.md (committed)
+
+Intermediate findings files (.agent/pipeline/*-findings.md) are ephemeral (gitignored).
+The synthesis file in .agent/reviews/ is committed and accumulates as a decision record.
+
+Mode B uses the same tmux session, SESSION.json pane IDs, two-Enter pattern,
+and tmux-wait completion detection as Mode A. The only difference is the flow:
+parallel perspectives → synthesis, instead of sequential build → review → fix loop.
+
 ## Gitignore Note
 
 .agent/pipeline/ is gitignored (ephemeral runtime artifacts).

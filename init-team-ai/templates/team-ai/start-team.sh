@@ -10,7 +10,7 @@
 # Pane layout (2x2 grid in the team-ai window):
 #   ┌──────────────────────┬──────────────────────┐
 #   │  Builder             │  Code Reviewer       │
-#   │  (claude -p)         │  (codex exec)        │
+#   │  (claude -p)         │  (codex --full-auto)  │
 #   ├──────────────────────┼──────────────────────┤
 #   │  UI/UX Reviewer      │  Status Monitor      │
 #   │  (gemini -y)         │                      │

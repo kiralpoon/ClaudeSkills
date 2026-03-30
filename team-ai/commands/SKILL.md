@@ -45,13 +45,17 @@ Then stop.
 
 ## Session Health Check (Both Modes)
 
-### Step 1: Ensure tmux session exists
+### Step 1: Ensure tmux team-ai layout exists
+
+`start-team.sh` creates either a window named `team-ai` inside the current session (when already in tmux) or a standalone session named `team-ai`. Check for both:
 
 ```bash
+# Check for team-ai as a window in any session, OR as a standalone session
+tmux list-windows -a -F '#{window_name}' 2>/dev/null | grep -q '^team-ai$' || \
 tmux has-session -t team-ai 2>/dev/null
 ```
 
-If it fails, run `bash scripts/start-team.sh` and wait 5 seconds for CLIs to start.
+If both fail, run `bash scripts/start-team.sh` and wait 5 seconds for CLIs to start.
 
 ### Step 2: Read SESSION.json
 
@@ -65,7 +69,8 @@ Read `.agent/pipeline/SESSION.json` and extract pane IDs into variables:
 If SESSION.json is missing or corrupt:
 
 ```
-team-ai session is running but SESSION.json is missing. Run: tmux kill-session -t team-ai
+team-ai layout is running but SESSION.json is missing.
+Kill it with: tmux kill-window -t team-ai  (or tmux kill-session -t team-ai if standalone)
 Then re-invoke /team-ai.
 ```
 
@@ -123,6 +128,11 @@ Log: `[timestamp] Session healthy. Lead: LEAD_PANE, Builder: BUILDER_PANE, UX: U
 ---
 
 # MODE A — Build/Review Pipeline
+
+> **Tip:** The pipeline makes many file edits (STATUS.json, task files, handoffs). To reduce
+> permission confirmation fatigue, suggest the user enable `acceptEdits` mode (Shift+Tab to cycle
+> permission modes) before starting. Alternatively, ensure `.claude/settings.local.json` has
+> broad `"Bash"` and `"Write"` permissions.
 
 ## Step A1: Clean Pipeline State
 
@@ -229,6 +239,13 @@ Log: `[timestamp] Build complete (round LOOP_ROUND). Handing off to UI/UX Review
 
 ### Stage 2: UI/UX Review
 
+> **Parallel option:** Stages 2 and 3 (UX Review and Code Review) are independent — both read
+> `01-build.md` but do not depend on each other's output. You MAY run them in parallel by sending
+> both tasks before waiting, then waiting for both sequentially. Sequential execution (as written
+> below) is the default because it is simpler to debug. **Note:** If run in parallel, the Code
+> Reviewer won't have `02-ux-review.md` available — this is acceptable since its review-task.md
+> lists that file as context, not a hard requirement.
+
 **Clean stale handoff:**
 ```bash
 rm -f .agent/pipeline/02-ux-review.md
@@ -236,12 +253,12 @@ rm -f .agent/pipeline/02-ux-review.md
 
 **Update STATUS.json:** stage=ux_review, activity_state=active, active_agent=ux
 
-**Send to Gemini pane (interactive TUI — two-Enter pattern):**
+**Send to Gemini pane (interactive TUI — two-Enter pattern, do NOT paste file content):**
 
-Read `.agent/pipeline/.ux-task.md` content, then send via two-Enter pattern:
+Tell the agent to read the task file itself (pasting raw content via `$(cat)` breaks TUI input due to special characters like `{}`, `$`, backticks):
 
 ```bash
-tmux send-keys -t "$UX_PANE" "$(cat .agent/pipeline/.ux-task.md)" Enter
+tmux send-keys -t "$UX_PANE" "Read and follow all instructions in .agent/pipeline/.ux-task.md" Enter
 sleep 1
 tmux send-keys -t "$UX_PANE" Enter
 ```
@@ -258,7 +275,11 @@ tmux send-keys -t "$UX_PANE" Enter
 /see-terminal $UX_PANE 100
 ```
 
-**Check handoff:** If `.agent/pipeline/02-ux-review.md` missing, set activity_state=error, log, re-send.
+**Check handoff:** If `.agent/pipeline/02-ux-review.md` is missing:
+1. Use `/see-terminal $UX_PANE 200` to capture the agent's full text output
+2. If the agent completed its analysis (findings visible in terminal), extract the review verdict and issues, then construct `.agent/pipeline/02-ux-review.md` yourself using the handoff format from TEAM.md
+3. Log: `[timestamp] Handoff file missing from Gemini — constructed from terminal output`
+4. If the terminal shows no useful output (agent crashed or empty response), THEN set activity_state=error, log, and re-send the task
 
 **Parse verdict:** Read `02-ux-review.md`, extract `Verdict:` field.
 
@@ -275,12 +296,12 @@ rm -f .agent/pipeline/03-code-review.md
 
 **Update STATUS.json:** stage=code_review, activity_state=active, active_agent=reviewer
 
-**Send to Codex pane (interactive TUI — two-Enter pattern):**
+**Send to Codex pane (interactive TUI — two-Enter pattern, do NOT paste file content):**
 
-Read `.agent/pipeline/.review-task.md` content, then send via two-Enter pattern:
+Tell the agent to read the task file itself (pasting raw content via `$(cat)` breaks TUI input due to special characters):
 
 ```bash
-tmux send-keys -t "$REVIEWER_PANE" "$(cat .agent/pipeline/.review-task.md)" Enter
+tmux send-keys -t "$REVIEWER_PANE" "Read and follow all instructions in .agent/pipeline/.review-task.md" Enter
 sleep 1
 tmux send-keys -t "$REVIEWER_PANE" Enter
 ```
@@ -297,7 +318,11 @@ tmux send-keys -t "$REVIEWER_PANE" Enter
 /see-terminal $REVIEWER_PANE 100
 ```
 
-**Check handoff:** If `.agent/pipeline/03-code-review.md` missing, set activity_state=error, log, re-send.
+**Check handoff:** If `.agent/pipeline/03-code-review.md` is missing:
+1. Use `/see-terminal $REVIEWER_PANE 200` to capture the agent's full text output
+2. If the agent completed its analysis (findings visible in terminal), extract the review verdict and issues, then construct `.agent/pipeline/03-code-review.md` yourself using the handoff format from TEAM.md
+3. Log: `[timestamp] Handoff file missing from Codex — constructed from terminal output`
+4. If the terminal shows no useful output (agent crashed or empty response), THEN set activity_state=error, log, and re-send the task
 
 **Parse verdict:** Read `03-code-review.md`, extract `Verdict:` field.
 
@@ -416,9 +441,9 @@ Devil's advocate task is prepared later (needs UX and arch findings).
 
 **Send UX task to Gemini pane:**
 
-If ux_agent = "gemini" (interactive TUI):
+If ux_agent = "gemini" (interactive TUI — do NOT paste file content, it breaks TUI input):
 ```bash
-tmux send-keys -t "$UX_PANE" "$(cat .agent/pipeline/.ux-task.md)" Enter
+tmux send-keys -t "$UX_PANE" "Read and follow all instructions in .agent/pipeline/.ux-task.md" Enter
 sleep 1
 tmux send-keys -t "$UX_PANE" Enter
 ```
@@ -430,9 +455,9 @@ tmux send-keys -t "$UX_PANE" "claude -p --allowedTools 'Read,Glob,Grep,Bash' < .
 
 **Send Architecture task to Codex pane:**
 
-If arch_agent = "codex" (interactive TUI):
+If arch_agent = "codex" (interactive TUI — do NOT paste file content, it breaks TUI input):
 ```bash
-tmux send-keys -t "$REVIEWER_PANE" "$(cat .agent/pipeline/.arch-task.md)" Enter
+tmux send-keys -t "$REVIEWER_PANE" "Read and follow all instructions in .agent/pipeline/.arch-task.md" Enter
 sleep 1
 tmux send-keys -t "$REVIEWER_PANE" Enter
 ```
@@ -451,7 +476,12 @@ tmux send-keys -t "$REVIEWER_PANE" "claude -p --allowedTools 'Read,Glob,Grep,Bas
 
 Wait for the likely-slower agent first (Gemini > Codex heuristic).
 
-**Verify findings files exist.** If either is missing (Gemini/Codex may not write to the expected path), check `/see-terminal` output to extract findings manually.
+**Verify findings files exist.** For each missing findings file:
+1. Use `/see-terminal <PANE> 200` to capture the agent's full text output
+2. Extract the perspective findings from the terminal text
+3. Write the findings file yourself (e.g., `.agent/pipeline/ux-findings.md`)
+4. Log which files were constructed from terminal output
+5. If the terminal shows no useful output (agent crashed), re-send the task
 
 ## Step B6: Run Devil's Advocate
 
