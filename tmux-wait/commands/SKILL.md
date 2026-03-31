@@ -134,6 +134,39 @@ while ((poll_count++ < MAX_POLLS)); do
     exit 0
   fi
 
+  # Check for Gemini TUI idle prompt (interactive mode)
+  # Gemini's idle state shows "Type your message" in its input field area
+  # and workspace/sandbox info in the bottom status bar
+  last_10_lines=$(echo "$output" | tail -10)
+  if echo "$last_10_lines" | grep -qF "Type your message"; then
+    elapsed=$((poll_count * 2 / 10))
+    echo "✓ Gemini TUI prompt detected after ${elapsed}s"
+    echo ""
+    echo "=== Pane output ==="
+    tmux capture-pane -t "$PANE" -p -S -50
+    exit 0
+  fi
+
+  # Check for Codex TUI idle prompt (interactive mode)
+  # Codex's idle state shows model info like "gpt-5.4 default · 88% left · ~/path"
+  # at the bottom, with a › prompt somewhere above.
+  # IMPORTANT: The gpt- status line appears in BOTH active and idle states.
+  # When active, Codex shows "• Working" or "◦ Working" in the last 10 lines.
+  # Only return if the status line is present AND no Working indicator found.
+  if echo "$last_10_lines" | grep -qE "gpt-.*default.*left"; then
+    if echo "$last_10_lines" | grep -qE "[•◦] Working"; then
+      # Codex is actively processing, keep waiting
+      sleep 0.2
+      continue
+    fi
+    elapsed=$((poll_count * 2 / 10))
+    echo "✓ Codex TUI prompt detected after ${elapsed}s"
+    echo ""
+    echo "=== Pane output ==="
+    tmux capture-pane -t "$PANE" -p -S -50
+    exit 0
+  fi
+
   # Special case: "? for shortcuts" means prompt might be above the last line
   if [[ "$last_line" =~ (for shortcuts) ]]; then
     last_5_lines=$(echo "$output" | sed '/^[[:space:]]*$/d' | tail -5)
@@ -399,16 +432,20 @@ Ask yourself: "Do I know the EXACT text that will appear?"
 
 The `prompt` mode detects the following shell prompts:
 
-| Shell | Prompt Pattern | Example |
-|-------|----------------|---------|
+| Shell / TUI | Prompt Pattern | Example |
+|-------------|----------------|---------|
 | Bash | `$` | `user@host:~$` |
 | Root | `#` | `root@host:~#` |
 | Zsh | `%` | `user@host %` |
 | Fish/Starship | `❯` or `›` | `~/projects ❯` |
 | PowerShell | `>` or `PS ...>` | `PS C:\Users\name>` |
 | Claude Code | `❯` | `❯` |
+| Gemini CLI | `Type your message` | `*  Type your message or @path/to/file` |
+| Codex CLI | `gpt-.*default.*left` | `gpt-5.4 default · 88% left · ~/project` |
 
 **PowerShell Support**: Works with PowerShell running inside tmux panes in WSL. Both standard prompts (`PS C:\>`) and verbose UNC paths (`PS Microsoft.PowerShell.Core\FileSystem::\\wsl.localhost\...>`) are detected.
+
+**Gemini/Codex TUI Support**: Detects idle state for interactive TUI agents used in team-ai pipelines. Gemini shows `Type your message` in its input field; Codex shows a model info line like `gpt-5.4 default · 88% left · ~/path`. Both are checked in the last 10 lines of pane output.
 
 ## Claude Code Processing Detection
 
