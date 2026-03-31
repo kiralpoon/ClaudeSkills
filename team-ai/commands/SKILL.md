@@ -270,17 +270,31 @@ tmux send-keys -t "$UX_PANE" Enter
 
 **Log:** `[timestamp] UI/UX review sent to Gemini (round LOOP_ROUND). Pane: UX_PANE`
 
-**Wait:**
+**Wait (with race-condition guard):**
+
+TUI agents (Gemini, Codex) need time to receive input and begin processing. The first tmux-wait poll can catch the pane in its previous idle state before the agent starts, causing a false 0s return.
+
+```bash
+sleep 5  # Let TUI receive input and start processing
+```
 ```
 /tmux-wait prompt $UX_PANE 300
 ```
 
-**Verify pane state:** Always check the terminal after waiting:
+**Verify handoff exists (re-wait if race condition hit):**
+```bash
+test -f .agent/pipeline/02-ux-review.md
+```
+If the file does NOT exist, the agent is still working — re-invoke tmux-wait:
+```
+/tmux-wait prompt $UX_PANE 300
+```
+Repeat up to 2 re-waits. After the final wait, verify with `/see-terminal`:
 ```
 /see-terminal $UX_PANE 100
 ```
 
-**Check handoff:** If `.agent/pipeline/02-ux-review.md` is missing:
+**Check handoff:** If `.agent/pipeline/02-ux-review.md` is STILL missing after re-waits:
 1. Use `/see-terminal $UX_PANE 200` to capture the agent's full text output
 2. If the agent completed its analysis (findings visible in terminal), extract the review verdict and issues, then construct `.agent/pipeline/02-ux-review.md` yourself using the handoff format from TEAM.md
 3. Log: `[timestamp] Handoff file missing from Gemini — constructed from terminal output`
@@ -313,17 +327,29 @@ tmux send-keys -t "$REVIEWER_PANE" Enter
 
 **Log:** `[timestamp] Code review sent to Codex (round LOOP_ROUND). Pane: REVIEWER_PANE`
 
-**Wait:**
+**Wait (with race-condition guard):**
+
+```bash
+sleep 5  # Let TUI receive input and start processing
+```
 ```
 /tmux-wait prompt $REVIEWER_PANE 300
 ```
 
-**Verify pane state:** Always check the terminal after waiting:
+**Verify handoff exists (re-wait if race condition hit):**
+```bash
+test -f .agent/pipeline/03-code-review.md
+```
+If the file does NOT exist, the agent is still working — re-invoke tmux-wait:
+```
+/tmux-wait prompt $REVIEWER_PANE 300
+```
+Repeat up to 2 re-waits. After the final wait, verify with `/see-terminal`:
 ```
 /see-terminal $REVIEWER_PANE 100
 ```
 
-**Check handoff:** If `.agent/pipeline/03-code-review.md` is missing:
+**Check handoff:** If `.agent/pipeline/03-code-review.md` is STILL missing after re-waits:
 1. Use `/see-terminal $REVIEWER_PANE 200` to capture the agent's full text output
 2. If the agent completed its analysis (findings visible in terminal), extract the review verdict and issues, then construct `.agent/pipeline/03-code-review.md` yourself using the handoff format from TEAM.md
 3. Log: `[timestamp] Handoff file missing from Codex — constructed from terminal output`
@@ -409,7 +435,7 @@ command -v codex && echo "codex available"
 
 - If gemini missing: UX perspective falls back to `claude -p`
 - If codex missing: Architecture perspective falls back to `claude -p`
-- Devil's advocate is always Claude (self-directed by Team Lead)
+- Devil's advocate is always Claude (runs in Builder pane)
 
 Write `.agent/pipeline/REVIEW-CONFIG.json`:
 
@@ -476,16 +502,52 @@ sleep 1
 tmux send-keys -t "$REVIEWER_PANE" Enter
 ```
 
-**Wait for both (sequential waits, parallel execution):**
+**Wait for both (sequential waits, parallel execution, with race-condition guard):**
 
+TUI agents need time to receive the two-Enter input and begin processing. Without a delay, the first tmux-wait poll catches the previous idle state and returns 0s.
+
+```bash
+sleep 5  # Let both TUIs receive input and start processing
+```
+
+Wait for the likely-slower agent first (Gemini > Codex heuristic):
 ```
 /tmux-wait prompt $UX_PANE 300
+```
+
+**Verify UX findings file exists (re-wait if race condition hit):**
+```bash
+test -f .agent/pipeline/ux-findings.md
+```
+If the file does NOT exist, the agent is still working — re-invoke tmux-wait:
+```
+/tmux-wait prompt $UX_PANE 300
+```
+
+Now wait for the other agent:
+```
 /tmux-wait prompt $REVIEWER_PANE 300
 ```
 
-Wait for the likely-slower agent first (Gemini > Codex heuristic).
+**Verify arch findings file exists (re-wait if race condition hit):**
+```bash
+test -f .agent/pipeline/arch-findings.md
+```
+If the file does NOT exist, re-invoke tmux-wait:
+```
+/tmux-wait prompt $REVIEWER_PANE 300
+```
 
-**Verify findings files exist.** For each missing findings file:
+**Verify pane state with /see-terminal (MANDATORY):**
+
+After file verification, you MUST visually verify each pane completed properly:
+```
+/see-terminal $UX_PANE 100
+/see-terminal $REVIEWER_PANE 100
+```
+Do NOT skip this step. Check that each agent actually processed the task and wrote meaningful output. A file existing does not guarantee the content is correct — the agent may have written a partial or malformed file before crashing.
+
+**For each STILL missing findings file:**
 1. Use `/see-terminal <PANE> 200` to capture the agent's full text output
 2. Extract the perspective findings from the terminal text
 3. Write the findings file yourself (e.g., `.agent/pipeline/ux-findings.md`)
@@ -496,9 +558,43 @@ Wait for the likely-slower agent first (Gemini > Codex heuristic).
 
 Read `ux-findings.md` and `arch-findings.md`.
 
-Read `.agent/templates/perspective-devil.md`, replace `{{SUBJECT}}`, `{{UX_FINDINGS}}`, `{{ARCH_FINDINGS}}`.
+Read `.agent/templates/perspective-devil.md`, replace `{{SUBJECT}}`, `{{UX_FINDINGS}}`, `{{ARCH_FINDINGS}}`, write to `.agent/pipeline/.devil-task.md`.
 
-The devil's advocate runs as self-directed reasoning by the Team Lead (you). Write the output to `.agent/pipeline/devil-findings.md`.
+**Send to Builder pane (Claude interactive TUI — two-Enter pattern):**
+
+The Builder pane has Claude running idle during Mode B. Use it for the devil's advocate to get a genuinely independent perspective — do NOT write the devil's findings yourself.
+
+```bash
+tmux send-keys -t "$BUILDER_PANE" "Read and follow all instructions in .agent/pipeline/.devil-task.md" Enter
+sleep 1
+tmux send-keys -t "$BUILDER_PANE" Enter
+```
+
+**Log:** `[timestamp] Devil's advocate task sent to Builder. Pane: BUILDER_PANE`
+
+**Wait (with race-condition guard):**
+
+```bash
+sleep 5  # Let TUI receive input and start processing
+```
+```
+/tmux-wait prompt $BUILDER_PANE 300
+```
+
+**Verify handoff exists (re-wait if race condition hit):**
+```bash
+test -f .agent/pipeline/devil-findings.md
+```
+If the file does NOT exist, re-invoke tmux-wait:
+```
+/tmux-wait prompt $BUILDER_PANE 300
+```
+
+**Verify pane state (MANDATORY):**
+```
+/see-terminal $BUILDER_PANE 100
+```
+Check that the Builder actually completed the devil's advocate analysis. If the file is still missing after verification, construct it from terminal output.
 
 ## Step B7: Synthesize
 
@@ -546,3 +642,4 @@ Review complete. See .agent/reviews/<filename>.md for the full synthesis.
 9. **Always verify with /see-terminal** — after every `/tmux-wait` call, use `/see-terminal` to visually confirm the pane is in the expected state. Never assume a pane is ready based solely on tmux-wait returning success. The Team Lead must double-check the tmux session properly before making decisions.
 10. **Builder runs interactively** — Claude runs in the Builder pane like Gemini/Codex. Send tasks via the two-Enter pattern. The Builder's permission mode should be set to `acceptEdits` (Shift+Tab) or have broad permissions in settings.
 11. **Detect TUI crashes** — before sending tasks to Gemini or Codex, verify their TUI is still running. If the pane shows a bare shell, restart the TUI before proceeding.
+12. **Guard against TUI race conditions** — after sending a task to Gemini or Codex via the two-Enter pattern, always `sleep 5` before invoking `/tmux-wait`. TUI agents need time to process input and begin showing active indicators. Without this delay, tmux-wait's first poll catches the previous idle state and returns 0s. After tmux-wait returns, always check if the expected output file exists. If it doesn't, the agent is still working — re-invoke tmux-wait. This verify-or-re-wait loop (up to 2 retries) is mandatory for Gemini and Codex panes.

@@ -114,7 +114,7 @@ Three perspectives run and synthesize:
 
 1. **UX Perspective** (Gemini) — user experience, accessibility, ergonomics
 2. **Architecture Perspective** (Codex) — code quality, scalability, maintainability
-3. **Devil's Advocate** (Claude, self-directed) — challenges assumptions from both perspectives
+3. **Devil's Advocate** (Claude, Builder pane) — challenges assumptions from both perspectives
 
 Output is written to `.agent/reviews/YYYYMMDD-<subject>.md`.
 

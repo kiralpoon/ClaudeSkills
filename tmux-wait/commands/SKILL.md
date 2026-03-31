@@ -137,9 +137,17 @@ while ((poll_count++ < MAX_POLLS)); do
 
   # Check for Gemini TUI idle prompt (interactive mode)
   # Gemini's idle state shows "Type your message" in its input field area
-  # and workspace/sandbox info in the bottom status bar
+  # and workspace/sandbox info in the bottom status bar.
+  # IMPORTANT: "Type your message" is ALWAYS visible in BOTH active and idle states.
+  # When active, Gemini shows a spinner line with "esc to cancel" in the last 10 lines.
+  # Only return if "Type your message" is present AND no active indicator found.
   last_10_lines=$(echo "$output" | tail -10)
   if echo "$last_10_lines" | grep -qF "Type your message"; then
+    if echo "$last_10_lines" | grep -qF "esc to cancel"; then
+      # Gemini is actively processing, keep waiting
+      sleep 0.2
+      continue
+    fi
     elapsed=$((poll_count * 2 / 10))
     echo "✓ Gemini TUI prompt detected after ${elapsed}s"
     echo ""
@@ -446,7 +454,7 @@ The `prompt` mode detects the following shell prompts:
 
 **PowerShell Support**: Works with PowerShell running inside tmux panes in WSL. Both standard prompts (`PS C:\>`) and verbose UNC paths (`PS Microsoft.PowerShell.Core\FileSystem::\\wsl.localhost\...>`) are detected.
 
-**Gemini/Codex TUI Support**: Detects idle state for interactive TUI agents used in team-ai pipelines. Gemini shows `Type your message` in its input field; Codex shows a model info line like `gpt-5.4 default · 88% left · ~/path`. Both are checked in the last 10 lines of pane output.
+**Gemini/Codex TUI Support**: Detects idle state for interactive TUI agents used in team-ai pipelines. Gemini shows `Type your message` in its input field; Codex shows a model info line like `gpt-5.4 default · 88% left · ~/path`. Both are checked in the last 10 lines of pane output. **IMPORTANT:** Both `Type your message` (Gemini) and `gpt-` status (Codex) are visible in BOTH active and idle states. Active processing is detected by checking for `esc to cancel` (Gemini spinner) or `• Working`/`◦ Working` (Codex) — if found, tmux-wait continues polling instead of returning.
 
 ## Claude Code Processing Detection
 
@@ -483,3 +491,20 @@ The `prompt` mode detects the following shell prompts:
 # - "Plan mode on"
 # And only return when Claude is truly done
 ```
+
+## Gemini TUI Processing Detection
+
+The `prompt` mode detects when Gemini CLI is actively processing and waits until truly complete, even though `Type your message` is always visible.
+
+**Key insight:** `Type your message` appears in BOTH active and idle states — it's part of the permanent TUI chrome, not an idle indicator.
+
+**Active state indicator:**
+- Spinner line with `esc to cancel` — e.g., `⠼ Cancel a request with Ctrl+C… (esc to cancel, 1s)` or `⠏ Automatically accept safe read-only… (esc to cancel, 5s)`
+
+**Idle state indicator:**
+- `? for shortcuts` visible near the bottom status bars
+- No `esc to cancel` line present
+
+**How it works:**
+1. If `Type your message` is found in last 10 lines AND `esc to cancel` is also found → Gemini is active, keep waiting
+2. If `Type your message` is found but NO `esc to cancel` → Gemini is idle, return success

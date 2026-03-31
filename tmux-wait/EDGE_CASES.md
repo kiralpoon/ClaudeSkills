@@ -11,6 +11,18 @@ _No known edge cases yet._
 
 ---
 
+## Gemini TUI Detection
+
+### 1. "Type your message" false positive (fixed)
+
+- **Symptom**: tmux-wait returns immediately (0s) while Gemini is still actively processing a task
+- **Cause**: `Type your message` is part of Gemini's permanent TUI chrome — visible in BOTH active and idle states. The original detection checked only for this text, returning as soon as it appeared
+- **Fix**: Added `esc to cancel` active-state check. When `Type your message` is found in last 10 lines, also check for `esc to cancel` (spinner line). If present, Gemini is active — continue polling. Only return idle when `esc to cancel` is absent
+- **Verified with**: 4 task types (create file, read file, web search, 60-second recursive analysis). Active indicator consistently present during processing, absent when idle
+- **Date**: 2026-03-31
+
+---
+
 ## Claude Code Detection
 
 ### 1. Middle dot in MCP status line (fixed)

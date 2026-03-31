@@ -66,9 +66,10 @@ Wait for shell or Claude prompt to return:
 
 **Detects:**
 - Shell prompts: `$`, `#`, `%`
-- Claude prompts: `❯`, `›`
-- Claude Code permission prompts (auto-detected!)
-- **NEW:** Claude Code processing states (Symbioting, plan mode, agents running)
+- Claude prompts: `❯`, `›` (with active processing detection)
+- Gemini TUI: `Type your message` (with `esc to cancel` active check)
+- Codex TUI: `gpt-.*default.*left` (with `Working` active check)
+- Permission prompts from all CLIs (auto-detected!)
 
 **Claude Code Processing Detection:**
 When a **Claude Code prompt** (`❯` or `›`) is detected, the skill intelligently checks if Claude is still actively processing before returning. This prevents false positives where the prompt appears but Claude is still working.
@@ -164,8 +165,8 @@ The `prompt` mode auto-detects which CLI is running in a pane and applies CLI-sp
 | CLI | Fingerprint Patterns | Prompt Char | Status Bar | Processing Indicators |
 |-----|---------------------|-------------|-----------|----------------------|
 | **Codex** | `gpt-`, `OpenAI Codex`, `% left` | `›` | `gpt-X.X default · NN% left · path` | `•`/`◦` `Working` (bullet alternates) |
-| **Gemini** | `Gemini CLI`, `/model`, `gemini-api-key`, `Gemini [0-9]` | `> ` or `* ` (YOLO) | `workspace ... branch ... sandbox ... /model` | Braille spinners: `⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏` |
-| **Claude** | `for shortcuts`, `claude`, `Esc to interrupt` | `❯` or `›` | `? for shortcuts` | `✻✽✶✢`, `Symbioting`, `Churned`, `Recombobulating`, `Running.*agents`, `thought for`, `⏸ plan mode` |
+| **Gemini** | `Gemini CLI`, `/model`, `gemini-api-key`, `Gemini [0-9]` | `> ` or `* ` (YOLO) | `workspace ... branch ... sandbox ... /model` | `esc to cancel` (with braille spinners: `⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏`) |
+| **Claude** | `for shortcuts`, `claude`, `Esc to interrupt` | `❯` or `›` | `? for shortcuts` | **Active only:** `Symbioting`, `Recombobulating`, `Running.*agents`, `Esc to interrupt`, `⏸ plan mode` |
 | **Shell** | none of the above | `$`, `#`, `%`, `>`, `PS` | N/A | N/A |
 
 All three TUI CLIs have status bars **below** their input prompts. The script uses two scan ranges:
@@ -316,10 +317,10 @@ Uses intelligent multi-stage detection with 50-line capture:
 grep -qF "Do you want"        # Claude
 grep -qF "Action Required"    # Gemini
 
-# Stage 2: Check last 10 non-empty lines for CLI-specific prompts
-# Codex: ^\s*› (with • Working check to avoid false idle)
-# Gemini: ^ [>*]  (with spinner check ⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏)
-# Claude: ^\s*(❯|›) (with processing indicator check)
+# Stage 2: Check last 10 lines for CLI-specific prompts
+# Gemini: "Type your message" (with "esc to cancel" active check)
+# Codex:  gpt-.*default.*left (with • Working active check)
+# Claude: ^\s*(❯|›) (with processing indicator check in last 5 lines)
 # Shell:  $ # % > (last line only)
 
 # Stage 3: Shell fallback for all CLI types (agent exited)
@@ -330,6 +331,33 @@ grep -qF "Action Required"    # Gemini
 - Prompt characters checked against **last 10 non-empty lines** (TUI status bars sit below prompts)
 - Each CLI has its own processing detection to prevent premature idle return
 - Detection order (Codex → Gemini → Claude → Shell) prevents fingerprint overlaps
+
+### Gemini Processing Detection
+
+Gemini's `Type your message` input field is **always visible** — in both active and idle states. It's part of the permanent TUI chrome, not an idle-only indicator. The script checks for `esc to cancel` in the last 10 lines to distinguish active from idle:
+
+```
+# While processing (spinner + "esc to cancel" visible):
+✦ I will read all the files...
+╭──────────────────────────────────────────────────────────────╮
+│ ✓  Shell find .agent -type f ...                             │
+╰──────────────────────────────────────────────────────────────╯
+ ⠼ Cancel a request with Ctrl+C… (esc to cancel, 1s)
+────────────────────────────────────────────────────────────────
+ YOLO Ctrl+Y
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+ *   Type your message or @path/to/file
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+
+# Truly idle (no "esc to cancel", "? for shortcuts" visible):
+✦ I have completed the analysis.
+                                                  ? for shortcuts
+────────────────────────────────────────────────────────────────
+ YOLO Ctrl+Y                        1 GEMINI.md file | 1 MCP server
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+ *   Type your message or @path/to/file
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+```
 
 ### Codex Processing Detection
 

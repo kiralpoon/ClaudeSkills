@@ -280,7 +280,7 @@ simultaneous perspective reviews and synthesises findings.
 Perspectives:
   UX / User Impact    — Gemini (or Claude fallback) in the UX pane
   Technical Architecture — Codex (or Claude fallback) in the Reviewer pane
-  Devil's Advocate    — Claude (Team Lead self-directed) in the Builder pane
+  Devil's Advocate    — Claude (Builder pane) challenges both perspectives independently
 
 Flow:
 1. Team Lead prepares perspective task files from templates in .agent/templates/

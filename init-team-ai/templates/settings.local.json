@@ -24,7 +24,22 @@
       "Bash(sed:*)",
       "Bash(tail:*)",
       "Bash(head:*)",
-      "Bash(sleep:*)"
+      "Bash(sleep:*)",
+      "Bash(mkdir:*)",
+      "Bash(rm -f .agent/pipeline:*)",
+      "Bash(test -f:*)",
+      "Bash(for p in:*)",
+      "Bash(npm:*)",
+      "Bash(node:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Write(.agent/**)",
+      "Edit(.agent/**)",
+      "Write(CHANGELOG.md)",
+      "Skill(team-ai)",
+      "Skill(init-team-ai)",
+      "Skill(tmux-wait)",
+      "Skill(see-terminal)"
     ],
     "deny": [
       "Read(**/.env)",
