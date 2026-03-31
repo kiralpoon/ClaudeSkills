@@ -17,7 +17,7 @@ Capture and control tmux pane contents - the default tool for all tmux operation
 ## Installation
 
 ```bash
-cd /home/kiral/ClaudeSkills/see-terminal
+cd see-terminal
 ./install.sh
 ```
 

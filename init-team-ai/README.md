@@ -11,6 +11,11 @@ This skill sets up a new project directory with all the necessary configuration 
 3. **.claude/settings.local.json** - Local settings with SessionStart hooks and safe command permissions
 4. **.agent/PLANS.md** - Detailed ExecPlan authoring guidelines (gitignored)
 5. **.gitignore** - Updated to exclude local AI configuration files
+6. **.agent/TEAM.md** - Team AI communication protocol (committed)
+7. **.agent/templates/** - Task, review, and deliberation templates for `/team-ai` pipeline (committed)
+8. **scripts/start-team.sh** - tmux layout launcher for agent panes (committed)
+9. **.gemini/settings.json** - Gemini CLI config with Chrome MCP (gitignored, per-developer)
+10. **.codex/config.toml** - Codex CLI config with Chrome MCP (gitignored, per-developer)
 
 ## Why Use This?
 

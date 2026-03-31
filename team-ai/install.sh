@@ -39,8 +39,8 @@ if [[ -f "$SKILLS_DIR/SKILL.md" ]]; then
     echo ""
     echo "Prerequisites:"
     echo "  1. Run /init-team-ai in your project first"
-    echo "  2. Install Codex CLI: npm install -g @anthropic/codex"
-    echo "  3. Install Gemini CLI: npm install -g @anthropic/gemini"
+    echo "  2. Install Codex CLI: https://github.com/openai/codex"
+    echo "  3. Install Gemini CLI: https://github.com/google-gemini/gemini-cli"
     echo ""
 else
     echo "✗ Installation failed - SKILL.md not found in target directory"

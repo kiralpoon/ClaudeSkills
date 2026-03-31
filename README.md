@@ -108,6 +108,28 @@ Setup Chrome DevTools MCP with Linux Chrome, Asian fonts, and WSL2 mirrored netw
 
 [📖 Full Documentation →](./chrome-mcp/README.md)
 
+### 🤖 [Team AI](./team-ai/)
+
+**Skill**: `team-ai`
+
+Orchestrates multiple AI agents (Claude, Gemini, Codex) in a structured build/review pipeline using tmux. Claude Code acts as Team Lead, coordinating a Builder, UI/UX Reviewer, and Code Reviewer through file-based handoffs.
+
+**Key Features**:
+- **Mode A** — Build/Review Pipeline: automated build → UX review → code review → fix loop
+- **Mode B** — Multi-Perspective Review: UX, architecture, and devil's advocate perspectives on existing code
+- Deliberation protocol for disputing reviewer findings with evidence-based rebuttals
+- Automatic session recovery if tmux crashes mid-pipeline
+- Status Monitor pane with live pipeline state
+- Graceful fallback to `claude -p` when Gemini or Codex CLIs are unavailable
+
+**Use Cases**:
+- Implement features with automated multi-agent code review
+- Get diverse perspectives on code, architecture, or design decisions
+- Run structured build/fix loops with up to 10 revision rounds
+- Review existing code from UX, architecture, and devil's advocate angles
+
+[📖 Full Documentation →](./team-ai/README.md)
+
 ## Quick Start
 
 ### Prerequisites
@@ -153,6 +175,7 @@ cd ClaudeSkills
 ./see-terminal/install.sh
 ./tmux-wait/install.sh
 ./init-team-ai/install.sh
+./team-ai/install.sh
 ```
 
 **Note**: With manual installation, you'll need to run `/init-team-ai` in your target project to set up pre-approved permissions, or you'll face permission prompts when using the skills.
@@ -189,8 +212,7 @@ All skills are designed to work seamlessly within Claude Code:
 | [Tmux Wait](./tmux-wait/) | `tmux-wait` | Event-driven waiting for tmux pane commands | ✅ Stable |
 | [Init Team AI](./init-team-ai/) | `init-team-ai` | Initialize projects with team AI collaboration setup | ✅ Stable |
 | [Chrome MCP](./chrome-mcp/) | `chrome-mcp` | Setup Chrome DevTools MCP for browser automation | ✅ Stable |
-
-_More skills coming soon!_
+| [Team AI](./team-ai/) | `team-ai` | Multi-agent build/review pipeline with Claude, Gemini, and Codex | ✅ Stable |
 
 ## Requirements
 
