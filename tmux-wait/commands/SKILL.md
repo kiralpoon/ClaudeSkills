@@ -90,8 +90,9 @@ while ((poll_count++ < MAX_POLLS)); do
     exit 0
   fi
 
-  # Check for Claude Code confirmation dialogs (folder trust, etc.)
-  if echo "$output" | grep -qF "Enter to confirm"; then
+  # Check for confirmation dialogs (Claude folder trust, Codex permission prompts, etc.)
+  # Case-insensitive: Claude uses "Enter to confirm", Codex uses "Press enter to confirm"
+  if echo "$output" | grep -qi "enter to confirm"; then
     elapsed=$((poll_count * 2 / 10))
     echo "✓ Confirmation prompt detected after ${elapsed}s"
     echo ""

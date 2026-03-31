@@ -100,12 +100,13 @@ For each worker pane, check if busy:
 tmux display-message -p -t "$PANE_ID" '#{pane_current_command}'
 ```
 
-If the result is not a shell (`bash`, `zsh`, `sh`, `fish`) AND not `codex` or `gemini` (the persistent TUI agents), the pane is busy with a previous task. Use `/tmux-wait prompt PANE_ID 60` to wait.
+If the result is not a shell (`bash`, `zsh`, `sh`, `fish`) AND not `claude`, `codex`, or `gemini` (the persistent TUI agents — all run as `node` process), the pane is busy with a previous task. Use `/tmux-wait prompt PANE_ID 60` to wait.
 
-**IMPORTANT**: Gemini and Codex run persistently in interactive mode. They do NOT need to be restarted between tasks. Only the Builder (claude -p) is invoked per task.
+**IMPORTANT**: All three agents (Claude Builder, Gemini, Codex) run persistently in interactive mode. They do NOT need to be restarted between tasks. Send tasks via two-Enter pattern into their running TUI.
 
-**TUI Crash Detection**: If the UX pane (Gemini) or Reviewer pane (Codex) is running a bare shell (`bash`, `zsh`, `sh`, `fish`) instead of the expected TUI, the agent has crashed or exited. Restart it:
+**TUI Crash Detection**: If any agent pane is running a bare shell (`bash`, `zsh`, `sh`, `fish`) instead of the expected TUI, the agent has crashed or exited. Restart it:
 
+- **Builder crashed**: `tmux send-keys -t "$BUILDER_PANE" "claude" Enter` then `/tmux-wait prompt $BUILDER_PANE 60`
 - **Gemini crashed**: `tmux send-keys -t "$UX_PANE" "gemini -y" Enter` then `/tmux-wait prompt $UX_PANE 30`
 - **Codex crashed**: `tmux send-keys -t "$REVIEWER_PANE" "codex --full-auto" Enter` then `/tmux-wait prompt $REVIEWER_PANE 30`
 
@@ -205,19 +206,23 @@ rm -f .agent/pipeline/01-build.md
 
 **Update STATUS.json:** stage=build, activity_state=active, active_agent=builder
 
-**Send to Builder pane (non-interactive, single Enter):**
+**Send to Builder pane (interactive TUI — two-Enter pattern, do NOT paste file content):**
+
+Tell the agent to read the task file itself (pasting raw content via `$(cat)` breaks TUI input due to special characters like `{}`, `$`, backticks):
 
 Round 1:
 ```bash
-tmux send-keys -t "$BUILDER_PANE" "claude -p --allowedTools 'Edit,Write,Read,Bash,Glob,Grep' < .agent/pipeline/.build-task.md" Enter
+tmux send-keys -t "$BUILDER_PANE" "Read and follow all instructions in .agent/pipeline/.build-task.md" Enter
+sleep 1
+tmux send-keys -t "$BUILDER_PANE" Enter
 ```
 
 Round > 1:
 ```bash
-tmux send-keys -t "$BUILDER_PANE" "claude -p --allowedTools 'Edit,Write,Read,Bash,Glob,Grep' < .agent/pipeline/.fix-task.md" Enter
+tmux send-keys -t "$BUILDER_PANE" "Read and follow all instructions in .agent/pipeline/.fix-task.md" Enter
+sleep 1
+tmux send-keys -t "$BUILDER_PANE" Enter
 ```
-
-**IMPORTANT:** The `--allowedTools` flag is required because `claude -p` in non-interactive mode denies write operations by default.
 
 **Log:** `[timestamp] Build task sent to Builder (round LOOP_ROUND). Pane: BUILDER_PANE`
 
@@ -448,9 +453,11 @@ sleep 1
 tmux send-keys -t "$UX_PANE" Enter
 ```
 
-If ux_agent = "claude" (fallback, non-interactive):
+If ux_agent = "claude" (fallback, interactive two-Enter pattern):
 ```bash
-tmux send-keys -t "$UX_PANE" "claude -p --allowedTools 'Read,Glob,Grep,Bash' < .agent/pipeline/.ux-task.md > .agent/pipeline/ux-findings.md" Enter
+tmux send-keys -t "$UX_PANE" "Read and follow all instructions in .agent/pipeline/.ux-task.md" Enter
+sleep 1
+tmux send-keys -t "$UX_PANE" Enter
 ```
 
 **Send Architecture task to Codex pane:**
@@ -462,9 +469,11 @@ sleep 1
 tmux send-keys -t "$REVIEWER_PANE" Enter
 ```
 
-If arch_agent = "claude" (fallback, non-interactive):
+If arch_agent = "claude" (fallback, interactive two-Enter pattern):
 ```bash
-tmux send-keys -t "$REVIEWER_PANE" "claude -p --allowedTools 'Read,Glob,Grep,Bash' < .agent/pipeline/.arch-task.md > .agent/pipeline/arch-findings.md" Enter
+tmux send-keys -t "$REVIEWER_PANE" "Read and follow all instructions in .agent/pipeline/.arch-task.md" Enter
+sleep 1
+tmux send-keys -t "$REVIEWER_PANE" Enter
 ```
 
 **Wait for both (sequential waits, parallel execution):**
@@ -528,12 +537,12 @@ Review complete. See .agent/reviews/<filename>.md for the full synthesis.
 
 1. **Never write code yourself** — you are the Team Lead orchestrator. All code changes go through the Builder.
 2. **Update STATUS.json after every state change** — stage, activity_state, active_agent, verdicts, timestamps.
-3. **Gemini and Codex run persistently** — do NOT restart them between tasks. Send tasks via two-Enter pattern into their running TUI.
-4. **Builder (claude -p) is invoked per task** — it exits after each task, returning the pane to a shell prompt.
+3. **All agents run persistently in interactive mode** — do NOT restart them between tasks. Send tasks via two-Enter pattern into their running TUI.
+4. **Builder (Claude) runs interactively** — like Gemini and Codex, it stays running between tasks. Send build/fix instructions via two-Enter pattern.
 5. **Read .agent/TEAM.md** at the start for the full protocol — this SKILL.md is the orchestration skeleton, TEAM.md has the complete handoff format, deliberation rules, and retry limits.
 6. **The handoff file IS the signal** — its existence means the agent is done, its Verdict field determines routing.
 7. **Deliberation does not consume a revision round** — it's part of the same round.
 8. **Independent 5-round budgets** — UX review and code review each get up to 5 rejections before escalating.
 9. **Always verify with /see-terminal** — after every `/tmux-wait` call, use `/see-terminal` to visually confirm the pane is in the expected state. Never assume a pane is ready based solely on tmux-wait returning success. The Team Lead must double-check the tmux session properly before making decisions.
-10. **Builder needs --allowedTools** — always use `claude -p --allowedTools 'Edit,Write,Read,Bash,Glob,Grep'` because non-interactive mode denies write operations by default.
+10. **Builder runs interactively** — Claude runs in the Builder pane like Gemini/Codex. Send tasks via the two-Enter pattern. The Builder's permission mode should be set to `acceptEdits` (Shift+Tab) or have broad permissions in settings.
 11. **Detect TUI crashes** — before sending tasks to Gemini or Codex, verify their TUI is still running. If the pane shows a bare shell, restart the TUI before proceeding.

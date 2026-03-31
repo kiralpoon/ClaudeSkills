@@ -139,8 +139,8 @@ EOF
 echo "✓ SESSION.json written with pane IDs"
 
 # Launch agents in interactive mode with auto-approve
-# Builder: claude -p is invoked per-task by Team Lead, not started here
-tmux send-keys -t "$BUILDER_ID" "echo 'Builder pane ready. Awaiting tasks from Team Lead.'" Enter
+# Builder: Claude interactive mode (persistent, like Gemini and Codex)
+tmux send-keys -t "$BUILDER_ID" "claude" Enter
 
 # UI/UX Reviewer: Gemini interactive with yolo mode (auto-approve all tools)
 tmux send-keys -t "$UX_ID" "gemini -y" Enter

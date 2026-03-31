@@ -249,7 +249,7 @@ your-project/
 
 - **Reduce permission prompts**: Press `Shift+Tab` to cycle to `acceptEdits` mode before starting a pipeline run
 - **Watch agents work**: `Ctrl+B n` switches to the team-ai window where you can see all agents in real-time
-- **Gemini/Codex are persistent**: They stay running between tasks. Only the Builder (claude -p) starts fresh each round
+- **All agents are persistent**: Claude (Builder), Gemini (UX), and Codex (Code Review) all stay running between tasks in interactive mode
 - **Templates are committed**: Your team shares the same task templates and protocol via git. Runtime state is gitignored
 - **Override logging**: Every time the Team Lead overrides a reviewer finding, it's logged in STATUS.json with reasoning — this creates an audit trail
 
