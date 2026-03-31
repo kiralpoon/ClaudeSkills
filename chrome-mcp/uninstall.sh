@@ -22,7 +22,7 @@ rm -rf "$SKILLS_DIR"
 # Verify removal
 if [[ ! -d "$SKILLS_DIR" ]]; then
     echo ""
-    echo "Uninstallation successful!"
+    echo "✓ Uninstallation successful!"
     echo ""
     echo "The /chrome-mcp skill has been removed from Claude Code."
     echo ""

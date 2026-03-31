@@ -37,7 +37,7 @@ From this directory, run:
 Or manually create a symlink:
 
 ```bash
-ln -s "$(pwd)" "$HOME/.config/claude/skills/init-team-ai"
+ln -s "$(pwd)" "$HOME/.claude/skills/init-team-ai"
 ```
 
 ## Usage

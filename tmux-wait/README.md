@@ -22,7 +22,7 @@ See [EDGE_CASES.md](EDGE_CASES.md) for known detection issues and workarounds.
 ## Installation
 
 ```bash
-cd /home/kiral/ClaudeSkills/tmux-wait
+cd tmux-wait
 ./install.sh
 ```
 
@@ -292,7 +292,7 @@ done
 ## Uninstallation
 
 ```bash
-cd /home/kiral/ClaudeSkills/tmux-wait
+cd tmux-wait
 ./uninstall.sh
 ```
 

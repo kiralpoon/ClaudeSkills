@@ -204,7 +204,7 @@ tmux send-keys -t 0 Down Down Enter
 ## Uninstallation
 
 ```bash
-cd /home/kiral/ClaudeSkills/see-terminal
+cd see-terminal
 ./uninstall.sh
 ```
 

@@ -29,7 +29,7 @@ cp "$SCRIPT_DIR/commands/SKILL.md" "$SKILLS_DIR/"
 # Verify installation
 if [[ -f "$SKILLS_DIR/SKILL.md" ]]; then
     echo ""
-    echo "Installation successful!"
+    echo "✓ Installation successful!"
     echo ""
     echo "The /chrome-mcp skill is now available in Claude Code."
     echo ""
