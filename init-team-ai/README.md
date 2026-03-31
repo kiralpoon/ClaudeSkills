@@ -111,8 +111,16 @@ Comprehensive guidelines for creating execution plans (ExecPlans) that agents ca
 Automatically updated to ignore:
 - `.claude/` directory
 - `*.local.json` files
-- `Claude.local.md`
-- `.agent/` directory
+- `Agents.md`, `Claude.local.md`
+- `.agent/PLANS.md` (personal guideline variant)
+- `.agent/pipeline/` (runtime pipeline state)
+- `.gemini/settings.json`, `.codex/` (per-developer CLI configs)
+
+**Not gitignored (committed to share with team):**
+- `.agent/TEAM.md` — team AI communication protocol
+- `.agent/templates/` — task and deliberation templates
+- `.agent/reviews/` — multi-perspective review outputs
+- `scripts/start-team.sh` — tmux layout launcher
 
 ## Customization
 
@@ -195,10 +203,14 @@ The key insight: **Local files stay local, guidelines can be shared.**
 
 ## Files Not Committed
 
-These files are automatically gitignored:
+These files are automatically gitignored (per-developer, not shared):
+- `Agents.md` - Core agent behavior (personal variant)
 - `Claude.local.md` - Personal preferences
 - `.claude/` - Local Claude Code settings
-- `.agent/` - Agent collaboration guidelines (optional)
+- `.agent/PLANS.md` - ExecPlan authoring guidelines (personal variant)
+- `.agent/pipeline/` - Runtime pipeline state (STATUS.json, handoff files, logs)
+- `.gemini/settings.json` - Gemini CLI config
+- `.codex/` - Codex CLI config
 - `*.local.json` - Any local JSON configuration
 
 ## Features
@@ -210,7 +222,8 @@ These files are automatically gitignored:
 ✓ **Customizable** - Easy to modify for your workflow
 ✓ **Gitignored** - Won't accidentally commit local preferences
 ✓ **Idempotent** - Safe to run multiple times, preserves your customizations
-✓ **Smart Merging** - Automatically adds SessionStart hooks to existing settings.local.json without manual editing
+✓ **Smart Merging** - Updates template sections in existing files while preserving your customizations
+✓ **Section Markers** - Template content uses `<!-- BEGIN/END TEMPLATE -->` markers for precise merging
 
 ## Technical Details
 

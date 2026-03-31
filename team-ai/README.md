@@ -101,7 +101,7 @@ The pipeline runs automatically:
    - Both APPROVED: presents summary to you for commit approval
    - Any NEEDS_REVISION: evaluates each issue, sends fix instructions back to Builder, loops
 
-The loop continues until all reviewers approve (max 10 rounds).
+The loop continues until all reviewers approve (max 10 rounds). Deliberation (Team Lead challenging a reviewer's finding) does not consume a revision round.
 
 ### Mode B: Multi-Perspective Review
 
