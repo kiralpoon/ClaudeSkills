@@ -81,6 +81,10 @@ $RECYCLE.BIN/
 .directory
 
 
+# Other AI tool configs
+.codex/
+.gemini/
+
 # Claude Code local settings (added by init-team-ai)
 Agents.md
 .agent/
