@@ -425,26 +425,102 @@ chmod +x "$TARGET_DIR/scripts/start-team.sh"
 echo "  ✓ $VERB scripts/start-team.sh (tmux layout launcher)"
 ```
 
-**Step 13: Create Gemini CLI Config**
+**Step 13: Create or Merge Gemini CLI Config**
 
 ```bash
 mkdir -p "$TARGET_DIR/.gemini"
 
 if [ -f "$TARGET_DIR/.gemini/settings.json" ]; then
-  echo "  ℹ .gemini/settings.json already exists - skipping"
+  echo "  📝 Merging .gemini/settings.json from template..."
+
+  python3 - "$TARGET_DIR/.gemini/settings.json" "$SKILL_DIR/templates/team-ai/gemini-settings.json" << 'PYTHON_SCRIPT'
+import json, sys
+
+existing_file, template_file = sys.argv[1], sys.argv[2]
+
+with open(existing_file, 'r') as f:
+    existing = json.load(f)
+with open(template_file, 'r') as f:
+    template = json.load(f)
+
+if "mcpServers" not in existing:
+    existing["mcpServers"] = {}
+
+added = []
+for name, config in template.get("mcpServers", {}).items():
+    if name not in existing["mcpServers"]:
+        existing["mcpServers"][name] = config
+        added.append(name)
+
+if added:
+    print(f"  ✓ Added MCP servers from template: {', '.join(added)}")
+else:
+    print("  ✓ All template MCP servers already present")
+
+with open(existing_file, 'w') as f:
+    json.dump(existing, f, indent=2)
+    f.write('\n')
+PYTHON_SCRIPT
+
+  if [ $? -ne 0 ]; then
+    echo "  ✗ Failed to merge .gemini/settings.json"
+    exit 1
+  fi
 else
   cp "$SKILL_DIR/templates/team-ai/gemini-settings.json" "$TARGET_DIR/.gemini/settings.json"
   echo "  ✓ Created .gemini/settings.json (Chrome MCP for Gemini)"
 fi
 ```
 
-**Step 14: Create Codex CLI Config**
+**Step 14: Create or Merge Codex CLI Config**
 
 ```bash
 mkdir -p "$TARGET_DIR/.codex"
 
 if [ -f "$TARGET_DIR/.codex/config.toml" ]; then
-  echo "  ℹ .codex/config.toml already exists - skipping"
+  echo "  📝 Merging .codex/config.toml from template..."
+
+  python3 - "$TARGET_DIR/.codex/config.toml" "$SKILL_DIR/templates/team-ai/codex-config.toml" << 'PYTHON_SCRIPT'
+import re, sys
+
+existing_file, template_file = sys.argv[1], sys.argv[2]
+
+with open(existing_file, 'r') as f:
+    existing_text = f.read()
+with open(template_file, 'r') as f:
+    template_text = f.read()
+
+# Parse [mcp_servers.NAME] section names from existing file
+existing_sections = set(re.findall(r'^\[mcp_servers\.(\w+)\]', existing_text, re.MULTILINE))
+
+# Split template into blocks (each starts with [mcp_servers.NAME])
+template_blocks = re.split(r'(?=^\[mcp_servers\.)', template_text, flags=re.MULTILINE)
+template_blocks = [b for b in template_blocks if b.strip()]
+
+added = []
+for block in template_blocks:
+    match = re.match(r'^\[mcp_servers\.(\w+)\]', block)
+    if match:
+        name = match.group(1)
+        if name not in existing_sections:
+            # Append with a blank line separator
+            if not existing_text.endswith('\n\n'):
+                existing_text = existing_text.rstrip('\n') + '\n\n'
+            existing_text += block.rstrip('\n') + '\n'
+            added.append(name)
+
+if added:
+    with open(existing_file, 'w') as f:
+        f.write(existing_text)
+    print(f"  ✓ Added MCP servers from template: {', '.join(added)}")
+else:
+    print("  ✓ All template MCP servers already present")
+PYTHON_SCRIPT
+
+  if [ $? -ne 0 ]; then
+    echo "  ✗ Failed to merge .codex/config.toml"
+    exit 1
+  fi
 else
   cp "$SKILL_DIR/templates/team-ai/codex-config.toml" "$TARGET_DIR/.codex/config.toml"
   echo "  ✓ Created .codex/config.toml (Chrome MCP for Codex)"
@@ -566,11 +642,10 @@ The success banner already mentions Mode B capability. No separate step needed.
 - **Performance**: Files are copied instantly using `cp` command - no AI processing required
 - **Idempotency**: Running the skill multiple times is safe - template updates propagate via section merge, user content is preserved
 - **Error Handling**: All file creation operations are validated with error checks
-- **Update Strategy** (4 categories):
-  - **Category B (section merge)**: Agents.md, Claude.local.md, PLANS.md — template sections wrapped in `<!-- BEGIN/END TEMPLATE: name -->` markers are replaced on re-run; user content outside markers is preserved. Files without markers are overwritten with a warning.
+- **Update Strategy** (3 categories):
   - **Category A (always overwrite)**: TEAM.md, task templates, start-team.sh, Mode B templates — fully template-owned, always copied fresh from template.
-  - **Category C (smart merge)**: settings.local.json, .gitignore — custom merge logic preserves user additions while ensuring template entries are present.
-  - **Category D (never overwrite)**: .gemini/settings.json, .codex/config.toml — per-developer config, only created if missing.
+  - **Category B (section merge)**: Agents.md, Claude.local.md, PLANS.md — template sections wrapped in `<!-- BEGIN/END TEMPLATE: name -->` markers are replaced on re-run; user content outside markers is preserved. Files without markers are overwritten with a warning.
+  - **Category C (smart merge)**: settings.local.json, .gitignore, .gemini/settings.json, .codex/config.toml — custom merge logic preserves user additions while ensuring template entries are present.
 - **Section Merging**: `$SKILL_DIR/merge_sections.py` handles marker-based merge for Category B files — single source of truth, no duplication
 - **JSON Merging**: Uses Python 3 (almost always available) to properly parse and merge JSON - no external dependencies required
 - **Permission Merging**: Template permissions are added to existing permissions (user additions are preserved, template permissions are ensured)
