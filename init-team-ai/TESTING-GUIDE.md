@@ -226,14 +226,25 @@ Check completion:
 
 After init-team-ai completes, verify these files:
 
+**Core files (gitignored):**
 - [ ] `Agents.md` exists and contains ExecPlan guidelines
 - [ ] `Claude.local.md` exists and contains local preferences
 - [ ] `.agent/PLANS.md` exists and contains detailed guidelines
 - [ ] `.claude/settings.local.json` exists with SessionStart hooks
 - [ ] `.gitignore` contains Claude Code entries
-- [ ] All files are properly gitignored (check with `git status`)
+
+**Team AI pipeline (committed):**
+- [ ] `.agent/TEAM.md` exists (communication protocol)
+- [ ] `.agent/templates/` contains task and deliberation templates (10 files)
+- [ ] `scripts/start-team.sh` exists and is executable
+
+**Per-developer CLI configs (gitignored, smart-merged on re-run):**
+- [ ] `.gemini/settings.json` exists with Chrome MCP config
+- [ ] `.codex/config.toml` exists with Chrome MCP config
+
+- [ ] All local files are properly gitignored (check with `git status`)
 
 Quick verification command:
 ```bash
-ls -la Agents.md Claude.local.md .agent/PLANS.md .claude/settings.local.json && tail -20 .gitignore
+ls -la Agents.md Claude.local.md .agent/PLANS.md .agent/TEAM.md .claude/settings.local.json .gemini/settings.json .codex/config.toml scripts/start-team.sh && ls .agent/templates/ && tail -20 .gitignore
 ```

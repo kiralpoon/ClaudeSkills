@@ -73,9 +73,12 @@ Quickly initialize new projects with team AI collaboration configuration. Create
 - Automatically updates .gitignore to exclude local files
 
 **What Gets Created**:
-- `Claude.local.md` - Personal preferences for Claude Code behavior
+- `Agents.md`, `Claude.local.md` - Agent behavior and personal preferences (gitignored)
 - `.claude/settings.local.json` - Local settings with hooks and safe permissions
-- `.agent/PLANS.md` - Comprehensive agent collaboration guidelines
+- `.agent/PLANS.md` - Agent collaboration guidelines (gitignored)
+- `.agent/TEAM.md`, `.agent/templates/` - Communication protocol and task templates (committed)
+- `scripts/start-team.sh` - tmux layout launcher (committed)
+- `.gemini/settings.json`, `.codex/config.toml` - CLI MCP configs (gitignored, smart-merged)
 - `.gitignore` - Updated to exclude local AI configuration files
 
 **Use Cases**:
