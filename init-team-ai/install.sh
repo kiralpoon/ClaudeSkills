@@ -60,14 +60,21 @@ cp -r "$SCRIPT_DIR/templates" "$SKILLS_DIR/"
 echo -e "${BLUE}→${NC} Installing merge script..."
 cp "$SCRIPT_DIR/merge_sections.py" "$SKILLS_DIR/"
 
+# Also install team-ai skill
+echo -e "${BLUE}→${NC} Installing team-ai skill..."
+TEAM_AI_SKILLS_DIR="$HOME/.claude/skills/team-ai"
+TEAM_AI_SOURCE="$SCRIPT_DIR/../team-ai/commands/SKILL.md"
+mkdir -p "$TEAM_AI_SKILLS_DIR"
+cp "$TEAM_AI_SOURCE" "$TEAM_AI_SKILLS_DIR/SKILL.md"
+
 # Verify installation
-if [[ -f "$SKILLS_DIR/SKILL.md" ]] && [[ -d "$SKILLS_DIR/templates" ]] && [[ -f "$SKILLS_DIR/merge_sections.py" ]]; then
+if [[ -f "$SKILLS_DIR/SKILL.md" ]] && [[ -d "$SKILLS_DIR/templates" ]] && [[ -f "$SKILLS_DIR/merge_sections.py" ]] && [[ -f "$TEAM_AI_SKILLS_DIR/SKILL.md" ]]; then
     echo -e "${GREEN}✓ Installation successful!${NC}"
     echo ""
     echo -e "${GREEN}Location:${NC} $SKILLS_DIR"
     echo ""
     echo -e "${GREEN}Installed:${NC}"
-    echo "  SKILL.md"
+    echo "  SKILL.md (/init-team-ai)"
     echo "  merge_sections.py"
     echo "  templates/"
     echo "    ├── Agents.md, Claude.local.md, PLANS.md"
@@ -79,6 +86,7 @@ if [[ -f "$SKILLS_DIR/SKILL.md" ]] && [[ -d "$SKILLS_DIR/templates" ]] && [[ -f 
     echo "        ├── perspective-ux.md, perspective-arch.md, perspective-devil.md"
     echo "        ├── review-synthesis.md"
     echo "        └── gemini-settings.json, codex-config.toml"
+    echo "  ~/.claude/skills/team-ai/SKILL.md (/team-ai skill)"
     echo ""
     echo -e "${YELLOW}Next steps:${NC}"
     echo "  1. Start or restart Claude Code"
@@ -87,6 +95,6 @@ if [[ -f "$SKILLS_DIR/SKILL.md" ]] && [[ -d "$SKILLS_DIR/templates" ]] && [[ -f 
     echo ""
 else
     echo -e "${RED}✗ Installation failed${NC}"
-    echo "  Skill file was not copied successfully"
+    echo "  One or more files were not copied successfully"
     exit 1
 fi

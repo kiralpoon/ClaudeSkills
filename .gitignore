@@ -87,4 +87,9 @@ $RECYCLE.BIN/
 
 # Claude Code local settings (added by init-team-ai)
 Agents.md
-.agent/
+.agent/PLANS.md
+.agent/pipeline/
+
+
+# Claude Code local settings (added by init-team-ai)
+.gemini/settings.json

@@ -57,7 +57,7 @@ fi
 
 **Step 2: Create or Update Agents.md**
 
-If the file doesn't exist, copy from template. If it exists and has section markers, merge template sections while preserving user content outside markers. If it exists without markers, overwrite and warn.
+If the file doesn't exist, copy from template. If it exists and has section markers, merge template sections while preserving user content outside markers. If it exists without markers, use `claude -p` to smart-merge — preserving all user content and appending only genuinely missing template sections (with a simple append fallback if `claude -p` is unavailable).
 
 ```bash
 if [ ! -f "$TARGET_DIR/Agents.md" ]; then
@@ -571,11 +571,7 @@ for file in $MODE_B_FILES; do
 done
 ```
 
-**Step 18: (No-op) Ensure Mode B Ephemeral Files Are Gitignored**
-
-The `.agent/pipeline/` directory is already gitignored (covers `ux-findings.md`, `arch-findings.md`, `devil-findings.md`, `REVIEW-CONFIG.json` at runtime). No additional gitignore entries needed — all Mode B working files go in `.agent/pipeline/` and synthesis outputs go in `.agent/reviews/` (committed).
-
-**Step 19: Report Success**
+**Step 18: Report Success**
 
 ```bash
 echo ""
@@ -594,7 +590,6 @@ echo "Team AI pipeline (Mode A — build→review):"
 echo "  ✓ .agent/TEAM.md (communication protocol)"
 echo "  ✓ .agent/templates/ (6 task & deliberation templates)"
 echo "  ✓ scripts/start-team.sh (tmux layout launcher)"
-echo ""
 echo "Team AI review (Mode B — multi-perspective):"
 echo "  ✓ .agent/templates/ (4 perspective & synthesis templates)"
 echo ""
@@ -612,10 +607,6 @@ echo "  5. Use /team-ai to run the pipeline"
 echo ""
 echo "=========================================="
 ```
-
-**Step 20: (Merged into Step 19)**
-
-The success banner already mentions Mode B capability. No separate step needed.
 
 ## Implementation Notes
 
@@ -644,7 +635,7 @@ The success banner already mentions Mode B capability. No separate step needed.
 - **Error Handling**: All file creation operations are validated with error checks
 - **Update Strategy** (3 categories):
   - **Category A (always overwrite)**: TEAM.md, task templates, start-team.sh, Mode B templates — fully template-owned, always copied fresh from template.
-  - **Category B (section merge)**: Agents.md, Claude.local.md, PLANS.md — template sections wrapped in `<!-- BEGIN/END TEMPLATE: name -->` markers are replaced on re-run; user content outside markers is preserved. Files without markers are overwritten with a warning.
+  - **Category B (section merge)**: Agents.md, Claude.local.md, PLANS.md — template sections wrapped in `<!-- BEGIN/END TEMPLATE: name -->` markers are replaced on re-run; user content outside markers is preserved. Files without markers are smart-merged via `claude -p` (user content preserved, only genuinely missing sections appended); falls back to a simple append if `claude -p` is unavailable.
   - **Category C (smart merge)**: settings.local.json, .gitignore, .gemini/settings.json, .codex/config.toml — custom merge logic preserves user additions while ensuring template entries are present.
 - **Section Merging**: `$SKILL_DIR/merge_sections.py` handles marker-based merge for Category B files — single source of truth, no duplication
 - **JSON Merging**: Uses Python 3 (almost always available) to properly parse and merge JSON - no external dependencies required
