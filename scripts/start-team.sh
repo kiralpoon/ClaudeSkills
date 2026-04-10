@@ -43,6 +43,12 @@ if ! command -v tmux >/dev/null 2>&1; then
     exit 1
 fi
 
+if [ ! -f "$WORK_DIR/scripts/monitor.sh" ]; then
+    echo "✗ scripts/monitor.sh not found in $WORK_DIR"
+    echo "  Run /init-team-ai first to scaffold the pipeline infrastructure."
+    exit 1
+fi
+
 if ! command -v codex >/dev/null 2>&1; then
     echo "⚠ codex CLI not found. Code Reviewer pane will show an error."
     echo "  Install from: https://github.com/openai/codex"
@@ -148,20 +154,9 @@ tmux send-keys -t "$UX_ID" "gemini -y" Enter
 # Code Reviewer: Codex interactive with full-auto (auto-approve + sandbox write)
 tmux send-keys -t "$REVIEWER_ID" "codex --full-auto" Enter
 
-# Status monitor — live display of pipeline state
-if command -v watch >/dev/null 2>&1; then
-    WATCH_CMD="watch -n 5"
-else
-    # macOS fallback: inline loop
-    WATCH_CMD="while true; do clear;"
-    WATCH_SUFFIX="; sleep 5; done"
-fi
-STATUS_CMD='printf "=== STATUS ===\n"; cat .agent/pipeline/STATUS.json 2>/dev/null || printf "(no STATUS.json yet)\n"; printf "\n=== HANDOFFS ===\n"; ls -1 .agent/pipeline/0*.md .agent/pipeline/DONE.md 2>/dev/null || printf "(none yet)\n"; printf "\n=== PIPELINE LOG (last 20) ===\n"; tail -20 .agent/pipeline/pipeline.log 2>/dev/null || printf "(no log yet)\n"'
-if [ -n "$WATCH_SUFFIX" ]; then
-    tmux send-keys -t "$MONITOR_ID" "$WATCH_CMD $STATUS_CMD $WATCH_SUFFIX" Enter
-else
-    tmux send-keys -t "$MONITOR_ID" "$WATCH_CMD '$STATUS_CMD'" Enter
-fi
+# Status monitor — active watcher that detects handoff files and updates STATUS.json
+# Uses scripts/monitor.sh rather than a passive `watch` display.
+tmux send-keys -t "$MONITOR_ID" "bash scripts/monitor.sh" Enter
 
 # Focus the builder pane
 tmux select-pane -t "$BUILDER_ID"

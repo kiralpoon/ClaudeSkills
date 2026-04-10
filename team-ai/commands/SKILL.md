@@ -7,6 +7,26 @@ allowed-tools: Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*), Skill(tmux
 
 # Team AI Pipeline
 
+## 🚫 CRITICAL: ALWAYS USE Skill("tmux-wait") — NEVER INLINE THE POLL LOOP 🚫
+
+**Every time you need to wait for a tmux pane, STOP and invoke the Skill tool. Do NOT copy-paste the bash poll loop.**
+
+| ❌ NEVER DO THIS | ✅ ALWAYS DO THIS |
+|------------------|-------------------|
+| Copy-paste the poll loop bash from tmux-wait docs | `Skill("tmux-wait", "prompt %41 300")` |
+| `while ((poll_count++ < MAX_POLLS)); do ...` | `Skill("tmux-wait", "prompt $PANE 300")` |
+| `sleep N && tmux capture-pane` | `Skill("tmux-wait", ...)` then `Skill("see-terminal", ...)` |
+
+**This applies to ALL wait operations in Mode A and Mode B — every stage, every agent pane.**
+
+Anywhere this SKILL.md shows:
+```
+/tmux-wait prompt $PANE 300
+```
+That means: **invoke the Skill tool** → `Skill("tmux-wait", "prompt $PANE 300")` — not a shell command.
+
+---
+
 ## Mode Detection
 
 Parse `$ARGS` to determine mode:
@@ -40,6 +60,25 @@ Run /init-team-ai first to scaffold the pipeline infrastructure.
 ```
 
 Then stop.
+
+---
+
+## Division of Responsibility: Team Lead vs. Monitor
+
+`scripts/monitor.sh` runs continuously in the Monitor pane and acts as an automatic STATUS.json updater. Understanding what it owns vs. what the Team Lead owns prevents conflicts:
+
+| Responsibility | Owner |
+|----------------|-------|
+| `build_verdict`, `ux_verdict`, `review_verdict`, `devil_verdict`, `builder_verdict` | **monitor.sh** — set automatically when handoff files appear |
+| `stage`, `activity_state`, `active_agent`, `loop_round` | **Team Lead** — set manually at each pipeline transition |
+| `pipeline.log` entries for handoff arrivals | **monitor.sh** |
+| `pipeline.log` entries for decisions, routing, overrides | **Team Lead** |
+
+Active verdict fields by mode:
+- **Mode A**: `build_verdict`, `ux_verdict`, `review_verdict`
+- **Mode B**: `ux_verdict` (from ux-findings.md), `review_verdict` (from arch-findings.md), `devil_verdict`, `builder_verdict`
+
+The Team Lead reads verdict fields from STATUS.json or the handoff files for routing decisions. It does **not** write verdict fields.
 
 ---
 
@@ -92,6 +131,8 @@ tmux list-panes -a -F '#{pane_id}' | grep -q "^%N$"
 
 If any pane is missing, re-run `bash scripts/start-team.sh`, sleep 5, re-read SESSION.json.
 
+> **Monitor pane:** `start-team.sh` automatically starts `scripts/monitor.sh` in the Monitor pane. It runs `bash scripts/monitor.sh` and needs no further action from the Team Lead. If the Monitor pane is missing or crashed, re-run `start-team.sh` to restore it.
+
 ### Step 5: Check pane readiness
 
 For each worker pane, check if busy:
@@ -136,6 +177,8 @@ Log: `[timestamp] Session healthy. Lead: LEAD_PANE, Builder: BUILDER_PANE, UX: U
 > broad `"Bash"` and `"Write"` permissions.
 
 ## Step A1: Clean Pipeline State
+
+Deletes all handoff and task files from any previous run. Step A3 immediately recreates the task files for the new task — this cleanup ensures `scripts/monitor.sh` doesn't re-detect stale handoffs from prior runs and write stale verdict values.
 
 ```bash
 rm -f .agent/pipeline/0*.md .agent/pipeline/DONE.md .agent/pipeline/PLAN.md
@@ -236,9 +279,9 @@ tmux send-keys -t "$BUILDER_PANE" Enter
 /see-terminal $BUILDER_PANE 100
 ```
 
-**Check handoff:** If `.agent/pipeline/01-build.md` missing, set activity_state=error, log, re-send.
+**Check handoff:** If `.agent/pipeline/01-build.md` missing, set activity_state=error, log, and re-send by using the two-Enter pattern again into the running Builder TUI (do NOT restart claude).
 
-**Mark complete:** Update STATUS.json: build_verdict=approved, activity_state=completed.
+**Mark complete:** Update STATUS.json: activity_state=completed. (`build_verdict` is set automatically by monitor.sh when `01-build.md` appears.)
 
 Log: `[timestamp] Build complete (round LOOP_ROUND). Handing off to UI/UX Reviewer.`
 
@@ -289,7 +332,7 @@ If the file does NOT exist, the agent is still working — re-invoke tmux-wait:
 ```
 /tmux-wait prompt $UX_PANE 300
 ```
-Repeat up to 2 re-waits. After the final wait, verify with `/see-terminal`:
+Repeat up to 2 more times (3 total waits: 1 initial + 2 retries). After the final wait, verify with `/see-terminal`:
 ```
 /see-terminal $UX_PANE 100
 ```
@@ -302,7 +345,9 @@ Repeat up to 2 re-waits. After the final wait, verify with `/see-terminal`:
 
 **Parse verdict:** Read `02-ux-review.md`, extract `Verdict:` field.
 
-**Update STATUS.json:** ux_verdict, activity_state=completed.
+> **Note:** `scripts/monitor.sh` has already written `ux_verdict` to STATUS.json automatically when the handoff file appeared. You are reading the verdict for routing logic — do NOT overwrite it.
+
+**Update STATUS.json:** activity_state=completed (stage and verdict are already set by monitor).
 
 Log: `[timestamp] UI/UX review complete (round LOOP_ROUND). Verdict: VERDICT.`
 
@@ -344,7 +389,7 @@ If the file does NOT exist, the agent is still working — re-invoke tmux-wait:
 ```
 /tmux-wait prompt $REVIEWER_PANE 300
 ```
-Repeat up to 2 re-waits. After the final wait, verify with `/see-terminal`:
+Repeat up to 2 more times (3 total waits: 1 initial + 2 retries). After the final wait, verify with `/see-terminal`:
 ```
 /see-terminal $REVIEWER_PANE 100
 ```
@@ -357,7 +402,9 @@ Repeat up to 2 re-waits. After the final wait, verify with `/see-terminal`:
 
 **Parse verdict:** Read `03-code-review.md`, extract `Verdict:` field.
 
-**Update STATUS.json:** review_verdict, activity_state=completed.
+> **Note:** `scripts/monitor.sh` has already written `review_verdict` to STATUS.json automatically when the handoff file appeared. You are reading the verdict for routing logic — do NOT overwrite it.
+
+**Update STATUS.json:** activity_state=completed (stage and verdict are already set by monitor).
 
 Log: `[timestamp] Code review complete (round LOOP_ROUND). Verdict: VERDICT.`
 
@@ -366,6 +413,8 @@ Log: `[timestamp] Code review complete (round LOOP_ROUND). Verdict: VERDICT.`
 **Update STATUS.json:** stage=evaluating, active_agent=lead
 
 **Read both review files and collect all issues.**
+
+> **Note:** `scripts/monitor.sh` automatically updates `ux_verdict` and `review_verdict` in STATUS.json as soon as handoff files arrive. Read the verdict fields from STATUS.json (or directly from the handoff files) for routing — do NOT write these fields yourself, as you would overwrite the monitor's values.
 
 #### If BOTH verdicts are APPROVED:
 
@@ -598,6 +647,8 @@ Check that the Builder actually completed the devil's advocate analysis. If the 
 
 ## Step B7: Synthesize
 
+> **Note:** `scripts/monitor.sh` automatically writes `ux_verdict`, `review_verdict`, `devil_verdict`, and `builder_verdict` to STATUS.json as each findings file appears. Mode B findings use `## Overall * Verdict` headings (not a bare `Verdict:` line) — the monitor parses both formats. You do not need to parse or set these fields manually.
+
 Read all three findings files plus `.agent/templates/review-synthesis.md`.
 
 Replace `{{SUBJECT}}`, `{{UX_FINDINGS}}`, `{{ARCH_FINDINGS}}`, `{{DEVIL_FINDINGS}}` in the synthesis template.
@@ -632,7 +683,7 @@ Review complete. See .agent/reviews/<filename>.md for the full synthesis.
 ## Key Operational Rules
 
 1. **Never write code yourself** — you are the Team Lead orchestrator. All code changes go through the Builder.
-2. **Update STATUS.json after every state change** — stage, activity_state, active_agent, verdicts, timestamps.
+2. **Update STATUS.json after every state change** — stage, activity_state, active_agent, and timestamps. Verdict fields (`build_verdict`, `ux_verdict`, `review_verdict`, etc.) are owned by `scripts/monitor.sh` and updated automatically — do not write them manually.
 3. **All agents run persistently in interactive mode** — do NOT restart them between tasks. Send tasks via two-Enter pattern into their running TUI.
 4. **Builder (Claude) runs interactively** — like Gemini and Codex, it stays running between tasks. Send build/fix instructions via two-Enter pattern.
 5. **Read .agent/TEAM.md** at the start for the full protocol — this SKILL.md is the orchestration skeleton, TEAM.md has the complete handoff format, deliberation rules, and retry limits.
@@ -643,3 +694,4 @@ Review complete. See .agent/reviews/<filename>.md for the full synthesis.
 10. **Builder runs interactively** — Claude runs in the Builder pane like Gemini/Codex. Send tasks via the two-Enter pattern. The Builder's permission mode should be set to `acceptEdits` (Shift+Tab) or have broad permissions in settings.
 11. **Detect TUI crashes** — before sending tasks to Gemini or Codex, verify their TUI is still running. If the pane shows a bare shell, restart the TUI before proceeding.
 12. **Guard against TUI race conditions** — after sending a task to Gemini or Codex via the two-Enter pattern, always `sleep 5` before invoking `/tmux-wait`. TUI agents need time to process input and begin showing active indicators. Without this delay, tmux-wait's first poll catches the previous idle state and returns 0s. After tmux-wait returns, always check if the expected output file exists. If it doesn't, the agent is still working — re-invoke tmux-wait. This verify-or-re-wait loop (up to 2 retries) is mandatory for Gemini and Codex panes.
+13. **ALWAYS use `Skill("tmux-wait", ...)` — never inline the bash poll loop.** Every `/tmux-wait` reference in this file means a Skill tool invocation, not a shell command. Inlining the loop defeats the skill system, bloats the context, and bypasses timeout handling. No exceptions.

@@ -17,6 +17,7 @@ This skill sets up a new project for team AI collaboration by creating:
 7. `.agent/templates/` - Task and deliberation templates for Mode A pipeline (committed)
 8. `.agent/templates/` - Perspective templates for Mode B multi-review (committed)
 9. `scripts/start-team.sh` - tmux layout launcher for agent panes
+10. `scripts/monitor.sh` - active pipeline monitor (updates STATUS.json when handoffs arrive)
 10. `.gemini/settings.json` - Gemini CLI Chrome MCP config (gitignored, per-developer)
 11. `.codex/config.toml` - Codex CLI Chrome MCP config (gitignored, per-developer)
 
@@ -413,7 +414,7 @@ for file in $MODE_A_FILES; do
 done
 ```
 
-**Step 12: Copy start-team.sh (always overwrite)**
+**Step 12: Copy start-team.sh and monitor.sh (always overwrite)**
 
 ```bash
 mkdir -p "$TARGET_DIR/scripts"
@@ -423,6 +424,12 @@ VERB="Created"
 cp "$SKILL_DIR/templates/team-ai/start-team.sh" "$TARGET_DIR/scripts/start-team.sh"
 chmod +x "$TARGET_DIR/scripts/start-team.sh"
 echo "  ✓ $VERB scripts/start-team.sh (tmux layout launcher)"
+
+VERB="Created"
+[ -f "$TARGET_DIR/scripts/monitor.sh" ] && VERB="Updated"
+cp "$SKILL_DIR/templates/team-ai/monitor.sh" "$TARGET_DIR/scripts/monitor.sh"
+chmod +x "$TARGET_DIR/scripts/monitor.sh"
+echo "  ✓ $VERB scripts/monitor.sh (active pipeline monitor)"
 ```
 
 **Step 13: Create or Merge Gemini CLI Config**
@@ -590,6 +597,7 @@ echo "Team AI pipeline (Mode A — build→review):"
 echo "  ✓ .agent/TEAM.md (communication protocol)"
 echo "  ✓ .agent/templates/ (6 task & deliberation templates)"
 echo "  ✓ scripts/start-team.sh (tmux layout launcher)"
+echo "  ✓ scripts/monitor.sh (active pipeline monitor)"
 echo "Team AI review (Mode B — multi-perspective):"
 echo "  ✓ .agent/templates/ (4 perspective & synthesis templates)"
 echo ""
@@ -624,6 +632,7 @@ echo "=========================================="
   - `templates/team-ai/ux-deliberation.md` - UX deliberation template
   - `templates/team-ai/review-deliberation.md` - Code review deliberation template
   - `templates/team-ai/start-team.sh` - tmux layout launcher
+  - `templates/team-ai/monitor.sh` - active pipeline monitor (watches handoffs, updates STATUS.json)
   - `templates/team-ai/gemini-settings.json` - Gemini Chrome MCP config
   - `templates/team-ai/codex-config.toml` - Codex Chrome MCP config
   - `templates/team-ai/perspective-ux.md` - Mode B UX perspective
@@ -634,7 +643,7 @@ echo "=========================================="
 - **Idempotency**: Running the skill multiple times is safe - template updates propagate via section merge, user content is preserved
 - **Error Handling**: All file creation operations are validated with error checks
 - **Update Strategy** (3 categories):
-  - **Category A (always overwrite)**: TEAM.md, task templates, start-team.sh, Mode B templates — fully template-owned, always copied fresh from template.
+  - **Category A (always overwrite)**: TEAM.md, task templates, start-team.sh, monitor.sh, Mode B templates — fully template-owned, always copied fresh from template.
   - **Category B (section merge)**: Agents.md, Claude.local.md, PLANS.md — template sections wrapped in `<!-- BEGIN/END TEMPLATE: name -->` markers are replaced on re-run; user content outside markers is preserved. Files without markers are smart-merged via `claude -p` (user content preserved, only genuinely missing sections appended); falls back to a simple append if `claude -p` is unavailable.
   - **Category C (smart merge)**: settings.local.json, .gitignore, .gemini/settings.json, .codex/config.toml — custom merge logic preserves user additions while ensuring template entries are present.
 - **Section Merging**: `$SKILL_DIR/merge_sections.py` handles marker-based merge for Category B files — single source of truth, no duplication

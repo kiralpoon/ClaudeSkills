@@ -90,6 +90,14 @@ Merged {filename}:"""
         merged = proc.stdout.strip()
         if proc.returncode != 0 or not merged:
             raise RuntimeError(proc.stderr.strip() or "empty output")
+        # Sanity check: output must be at least half the size of the original
+        # and contain at least one marker (prevents overwriting user content if
+        # claude returns a short answer or stripped version of the file).
+        if len(merged) < len(target_text) * 0.5 or '<!-- BEGIN TEMPLATE:' not in merged:
+            raise RuntimeError(
+                f"claude -p output looks truncated or missing markers "
+                f"({len(merged)} chars vs {len(target_text)} original)"
+            )
         with open(target_path, 'w') as f:
             f.write(merged + "\n")
         print(f"  ✓ {filename} smart-merged via claude -p (sections: {section_names})")
