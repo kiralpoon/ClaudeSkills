@@ -87,9 +87,10 @@ $RECYCLE.BIN/
 
 # Claude Code local settings (added by init-team-ai)
 Agents.md
-.agent/PLANS.md
-.agent/pipeline/
-
-
-# Claude Code local settings (added by init-team-ai)
 .gemini/settings.json
+
+# Team AI private files (never committed; skill TEMPLATES under
+# init-team-ai/templates/ remain tracked -- they are the skill's source)
+.agent/
+scripts/start-team.sh
+scripts/monitor.sh
