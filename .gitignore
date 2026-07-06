@@ -89,8 +89,9 @@ $RECYCLE.BIN/
 Agents.md
 .gemini/settings.json
 
-# Team AI private files (never committed; skill TEMPLATES under
-# init-team-ai/templates/ remain tracked -- they are the skill's source)
+# Private AI working files (this repo's own planning/review area).
+# NOTE: root scripts/ and init-team-ai/templates/ stay TRACKED here --
+# this is the distribution repo; users need those files when cloning.
+# The init-team-ai TEMPLATE .gitignore is what keeps team-AI files
+# untracked in projects scaffolded by the skill.
 .agent/
-scripts/start-team.sh
-scripts/monitor.sh
