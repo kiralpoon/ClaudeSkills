@@ -11,9 +11,9 @@ This skill sets up a new project directory with all the necessary configuration 
 3. **.claude/settings.local.json** - Local settings with SessionStart hooks and safe command permissions
 4. **.agent/PLANS.md** - Detailed ExecPlan authoring guidelines (gitignored)
 5. **.gitignore** - Updated to exclude local AI configuration files
-6. **.agent/TEAM.md** - Team AI communication protocol (committed)
-7. **.agent/templates/** - Task, review, and deliberation templates for `/team-ai` pipeline (committed)
-8. **scripts/start-team.sh** - tmux layout launcher for agent panes (committed)
+6. **.agent/TEAM.md** - Team AI communication protocol (gitignored — private AI file)
+7. **.agent/templates/** - Task, review, and deliberation templates for `/team-ai` pipeline (gitignored — private AI files)
+8. **scripts/start-team.sh** - tmux layout launcher for agent panes (gitignored — private AI file)
 9. **.gemini/settings.json** - Gemini CLI config with Chrome MCP (gitignored, per-developer)
 10. **.codex/config.toml** - Codex CLI config with Chrome MCP (gitignored, per-developer)
 
@@ -112,15 +112,11 @@ Automatically updated to ignore:
 - `.claude/` directory
 - `*.local.json` files
 - `Agents.md`, `Claude.local.md`
-- `.agent/PLANS.md` (personal guideline variant)
-- `.agent/pipeline/` (runtime pipeline state)
+- `.agent/` (entire directory — private AI working area: TEAM.md, templates, reviews, pipeline state)
+- `scripts/start-team.sh`, `scripts/monitor.sh` (private AI pipeline scripts)
 - `.gemini/settings.json`, `.codex/` (per-developer CLI configs)
 
-**Not gitignored (committed to share with team):**
-- `.agent/TEAM.md` — team AI communication protocol
-- `.agent/templates/` — task and deliberation templates
-- `.agent/reviews/` — multi-perspective review outputs
-- `scripts/start-team.sh` — tmux layout launcher
+All team-AI files are private to each developer's machine and never committed.
 
 ## Customization
 

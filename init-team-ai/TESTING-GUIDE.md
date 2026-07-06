@@ -233,7 +233,7 @@ After init-team-ai completes, verify these files:
 - [ ] `.claude/settings.local.json` exists with SessionStart hooks
 - [ ] `.gitignore` contains Claude Code entries
 
-**Team AI pipeline (committed):**
+**Team AI pipeline (gitignored — private AI files):**
 - [ ] `.agent/TEAM.md` exists (communication protocol)
 - [ ] `.agent/templates/` contains task and deliberation templates (10 files)
 - [ ] `scripts/start-team.sh` exists and is executable

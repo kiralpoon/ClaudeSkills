@@ -13,11 +13,11 @@ This skill sets up a new project for team AI collaboration by creating:
 3. `.claude/settings.local.json` - Local settings with SessionStart hooks
 4. `.agent/PLANS.md` - Detailed ExecPlan authoring guidelines (gitignored)
 5. Updated `.gitignore` - Ensures local files are not committed
-6. `.agent/TEAM.md` - Team AI communication protocol (committed)
-7. `.agent/templates/` - Task and deliberation templates for Mode A pipeline (committed)
-8. `.agent/templates/` - Perspective templates for Mode B multi-review (committed)
-9. `scripts/start-team.sh` - tmux layout launcher for agent panes
-10. `scripts/monitor.sh` - active pipeline monitor (updates STATUS.json when handoffs arrive)
+6. `.agent/TEAM.md` - Team AI communication protocol (gitignored — private AI file)
+7. `.agent/templates/` - Task and deliberation templates for Mode A pipeline (gitignored — private AI files)
+8. `.agent/templates/` - Perspective templates for Mode B multi-review (gitignored — private AI files)
+9. `scripts/start-team.sh` - tmux layout launcher for agent panes (gitignored — private AI file)
+10. `scripts/monitor.sh` - active pipeline monitor (gitignored — private AI file)
 10. `.gemini/settings.json` - Gemini CLI Chrome MCP config (gitignored, per-developer)
 11. `.codex/config.toml` - Codex CLI Chrome MCP config (gitignored, per-developer)
 
@@ -309,22 +309,23 @@ except Exception as e:
 # Get non-empty, non-comment entries from template
 template_entries = [line for line in template_lines if line.strip() and not line.strip().startswith('#')]
 
-# Migration: replace blanket .agent/ with specific entries
+# Migration: replace legacy specific .agent entries with the blanket .agent/
+# (.agent is private AI working area and must never be committed)
+legacy = {'.agent/PLANS.md', '.agent/pipeline/'}
 migrated = False
-for i, line in enumerate(existing_lines):
-    if line.strip() == '.agent/':
-        # Replace the single blanket line with two specific entries
-        existing_lines[i] = '.agent/PLANS.md'
-        existing_lines.insert(i + 1, '.agent/pipeline/')
+kept_lines = []
+for line in existing_lines:
+    if line.strip() in legacy:
         migrated = True
-        break
-
+        continue
+    kept_lines.append(line)
+existing_lines = kept_lines
+if migrated and '.agent/' not in {l.strip() for l in existing_lines}:
+    existing_lines.append('.agent/')
 if migrated:
-    # Rewrite the file with the replacement applied
     with open(gitignore_file, 'w') as f:
         f.write('\n'.join(existing_lines) + '\n')
-    print("  ✓ Migrated .agent/ → .agent/PLANS.md + .agent/pipeline/")
-    print("    (.agent/TEAM.md, .agent/templates/, .agent/reviews/ are now tracked by git)")
+    print("  ✓ Migrated legacy .agent entries → blanket .agent/ (private, never committed)")
 
 # Check which template entries are missing (rebuild set after potential migration)
 existing_set = set(line.strip() for line in existing_lines)
@@ -375,7 +376,7 @@ echo ""
 
 **Step 9: Create Team AI Directories**
 
-Create the pipeline, templates, and reviews directories. Add `.gitkeep` files so git tracks the committed directories:
+Create the pipeline, templates, and reviews directories. Add `.gitkeep` files to preserve the directory structure (the whole `.agent/` tree is gitignored — these are local-only):
 
 ```bash
 mkdir -p "$TARGET_DIR/.agent/pipeline" "$TARGET_DIR/.agent/templates" "$TARGET_DIR/.agent/reviews"

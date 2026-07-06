@@ -3,8 +3,11 @@
 *.local.json
 Agents.md
 Claude.local.md
-.agent/PLANS.md
-.agent/pipeline/
+
+# Team AI private files (never committed)
+.agent/
+scripts/start-team.sh
+scripts/monitor.sh
 
 # Team AI local config (per-developer, not committed)
 .gemini/settings.json
